@@ -296,6 +296,29 @@
   }
   .pestana-dia:hover { border-color: var(--verde-oscuro); color: var(--verde-oscuro); }
   .pestana-dia.activo { background: var(--verde-oscuro); border-color: var(--verde-oscuro); color: #fff; }
+
+  .selector-cantidad { display: flex; gap: 6px; margin: 4px 0 20px; }
+  .selector-cantidad button {
+    padding: 8px 16px; border-radius: 8px; border: 1px solid var(--gris-borde);
+    background: #fff; color: var(--carbon); cursor: pointer; font-family: inherit;
+    font-size: 13px; font-weight: 600;
+  }
+  .selector-cantidad button:hover { border-color: var(--verde-oscuro); color: var(--verde-oscuro); }
+  .selector-cantidad button.activo { background: var(--verde-oscuro); border-color: var(--verde-oscuro); color: #fff; }
+
+  .cambio-item { border: 1px solid var(--gris-borde); border-left: 4px solid var(--gris-texto); border-radius: 8px; padding: 12px 14px; margin-bottom: 10px; background: #fff; }
+  .cambio-item.cambio-tipo-creado { border-left-color: var(--verde-oscuro); }
+  .cambio-item.cambio-tipo-editado { border-left-color: #B8791E; }
+  .cambio-item.cambio-tipo-borrado { border-left-color: var(--rosa); }
+  .cambio-encabezado { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+  .cambio-etiqueta { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; }
+  .cambio-tipo-creado .cambio-etiqueta { color: var(--verde-oscuro); }
+  .cambio-tipo-editado .cambio-etiqueta { color: #B8791E; }
+  .cambio-tipo-borrado .cambio-etiqueta { color: var(--rosa); }
+  .cambio-hora { font-size: 12px; color: var(--gris-texto); }
+  .cambio-contexto { font-size: 14px; margin: 0; color: var(--carbon); }
+  .detalle-cambio { margin: 8px 0 0; padding-left: 18px; font-size: 13px; color: var(--carbon); }
+  .detalle-cambio li { margin-bottom: 3px; }
   .botones-reporte { display: flex; gap: 10px; }
   .botones-reporte button {
     padding: 9px 14px; border-radius: 8px; border: 1px solid var(--gris-borde);
@@ -357,6 +380,7 @@
     body { background: #fff; font-size: 12px; margin: 0; padding: 15mm 12mm; color: #000; }
     #contenedor-principal { max-width: none; padding: 0; }
     #seccion-reporte-semanal { display: none !important; }
+    #seccion-cambios { display: none !important; }
 
     .encabezado-impresion { display: block !important; margin-bottom: 12px; }
     .titulo-impresion { margin: 0; font-size: 18px; font-weight: 700; color: #000; }
@@ -431,6 +455,7 @@
           <button type="button" onclick="mostrarSeccion('seccion-lista')">Ver Pedidos</button>
           <button type="button" onclick="mostrarSeccion('seccion-reporte-semanal')">Reporte Producto</button>
           <button type="button" onclick="mostrarSeccion('seccion-agregar-info')">Agregar información</button>
+          <button type="button" onclick="mostrarSeccion('seccion-cambios')">Ver últimos cambios</button>
         </div>
 
         <h2>Nuevo pedido</h2>
@@ -744,6 +769,19 @@
         </div>
       </div>
       <div id="contenedor-reporte-semanal"></div>
+    </section>
+
+    <section id="seccion-cambios">
+      <button type="button" id="boton-volver-cambios" class="boton-volver" onclick="volverAlFormulario()" style="display:none;">← Volver al formulario principal</button>
+      <h2>Últimos cambios del día</h2>
+      <p class="nota-actualizacion">Muestra los cambios más recientes al día que tengas elegido en "Ver Pedidos" — nuevos pedidos, ediciones (con el valor anterior) y pedidos borrados.</p>
+      <div id="selector-cantidad-cambios" class="selector-cantidad">
+        <button type="button" data-cantidad="2" onclick="elegirCantidadCambios(2)">2</button>
+        <button type="button" data-cantidad="5" class="activo" onclick="elegirCantidadCambios(5)">5</button>
+        <button type="button" data-cantidad="10" onclick="elegirCantidadCambios(10)">10</button>
+        <button type="button" data-cantidad="15" onclick="elegirCantidadCambios(15)">15</button>
+      </div>
+      <div id="contenedor-cambios"></div>
     </section>
 
   </main>
@@ -1118,6 +1156,72 @@
       boton.classList.toggle('activo', boton.getAttribute('data-fecha') === fecha);
     });
     cargarReporteDia();
+    cargarUltimosCambios();
+  }
+
+  // ---------- ÚLTIMOS CAMBIOS ----------
+  let cantidadCambiosMostrar = 5;
+
+  function elegirCantidadCambios(n) {
+    cantidadCambiosMostrar = n;
+    document.querySelectorAll('#selector-cantidad-cambios button').forEach(function (b) {
+      b.classList.toggle('activo', Number(b.getAttribute('data-cantidad')) === n);
+    });
+    cargarUltimosCambios();
+  }
+
+  function formatoHora(fechaISO) {
+    const d = new Date(fechaISO);
+    const horas = String(d.getHours()).padStart(2, '0');
+    const minutos = String(d.getMinutes()).padStart(2, '0');
+    return horas + ':' + minutos;
+  }
+
+  function renderizarCambio(c) {
+    const hora = formatoHora(c.fecha_cambio);
+    const etiquetaTipo = c.tipo_cambio === 'creado' ? 'Nuevo pedido' : (c.tipo_cambio === 'editado' ? 'Editado' : 'Borrado');
+    const contexto = (c.cliente_nombre || '—') + (c.producto_nombre ? ' · ' + c.producto_nombre : '');
+    const usuario = c.usuario_nombre || '—';
+
+    let detalle = '';
+    if (c.tipo_cambio === 'editado' && c.cambios) {
+      const campos = Object.keys(c.cambios);
+      if (campos.length > 0) {
+        detalle = '<ul class="detalle-cambio">' + campos.map(function (campo) {
+          const v = c.cambios[campo];
+          return '<li>' + escaparHtml(campo) + ': ' + escaparHtml(String(v.antes)) + ' → ' + escaparHtml(String(v.ahora)) + '</li>';
+        }).join('') + '</ul>';
+      }
+    }
+
+    return '<div class="cambio-item cambio-tipo-' + c.tipo_cambio + '">' +
+      '<div class="cambio-encabezado"><span class="cambio-etiqueta">' + etiquetaTipo + '</span>' +
+      '<span class="cambio-hora">' + hora + '</span></div>' +
+      '<p class="cambio-contexto">' + escaparHtml(contexto) + ' — ' + escaparHtml(usuario) + '</p>' +
+      detalle +
+      '</div>';
+  }
+
+  async function cargarUltimosCambios() {
+    const fecha = fechaReporteActual;
+    const contenedor = document.getElementById('contenedor-cambios');
+    if (!fecha) { contenedor.innerHTML = ''; return; }
+
+    const respuesta = await fetch(
+      SUPABASE_URL + '/rest/v1/historial_pedidos?select=*&fecha_venta=eq.' + fecha + '&order=fecha_cambio.desc&limit=' + cantidadCambiosMostrar,
+      { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + sesion.access_token } }
+    );
+    const cambios = await respuesta.json();
+
+    if (!respuesta.ok) {
+      contenedor.innerHTML = '<p class="sin-datos">No se pudo cargar el historial de cambios.</p>';
+      return;
+    }
+    if (cambios.length === 0) {
+      contenedor.innerHTML = '<p class="sin-datos">No hay cambios registrados para este día.</p>';
+      return;
+    }
+    contenedor.innerHTML = cambios.map(renderizarCambio).join('');
   }
 
   async function cargarReporteDia() {
@@ -1241,6 +1345,7 @@
     document.getElementById('seccion-lista').style.display = 'none';
     document.getElementById('seccion-reporte-semanal').style.display = 'none';
     document.getElementById('seccion-agregar-info').style.display = 'none';
+    document.getElementById('seccion-cambios').style.display = 'none';
     document.getElementById(idSeccion).style.display = 'block';
   }
 
@@ -1249,6 +1354,7 @@
     document.getElementById('seccion-lista').style.display = 'none';
     document.getElementById('seccion-reporte-semanal').style.display = 'none';
     document.getElementById('seccion-agregar-info').style.display = 'none';
+    document.getElementById('seccion-cambios').style.display = 'none';
     document.getElementById('vista-principal-vendedor').style.display = 'block';
   }
 
@@ -1322,6 +1428,7 @@
 
     if (idPedidoEditando === id) cancelarEdicion();
     await cargarReporteDia();
+    await cargarUltimosCambios();
     await cargarReporteSemanal();
   }
 
@@ -1527,6 +1634,7 @@
     document.getElementById('admin-catalogo-detalle').style.display = 'none';
     mostrarMensajeInfo('mensaje-fusion-admin', '✓ Fusionado correctamente.', false);
     await cargarReporteDia();
+    await cargarUltimosCambios();
     await cargarReporteSemanal();
   }
 
@@ -1863,6 +1971,7 @@
         llenarFormularioInicial();
         document.getElementById('preview-total-tallos').textContent = '';
         await cargarReporteDia();
+        await cargarUltimosCambios();
         await cargarReporteSemanal();
       }
     } catch (error) {
@@ -2442,8 +2551,10 @@
       document.getElementById('seccion-lista').style.display = 'none';
       document.getElementById('seccion-reporte-semanal').style.display = 'none';
       document.getElementById('seccion-agregar-info').style.display = 'none';
+      document.getElementById('seccion-cambios').style.display = 'none';
       document.getElementById('boton-volver-lista').style.display = 'inline-block';
       document.getElementById('boton-volver-semanal').style.display = 'inline-block';
+      document.getElementById('boton-volver-cambios').style.display = 'inline-block';
       document.getElementById('fecha-plantilla').value = new Date().toISOString().split('T')[0];
       llenarFormularioInicial();
       llenarSelectoresAgregarInfo();
@@ -2451,14 +2562,17 @@
       document.getElementById('vista-vendedor').style.display = 'none';
       document.getElementById('seccion-lista').style.display = 'block';
       document.getElementById('seccion-reporte-semanal').style.display = 'block';
+      document.getElementById('seccion-cambios').style.display = 'block';
       document.getElementById('boton-volver-lista').style.display = 'none';
       document.getElementById('boton-volver-semanal').style.display = 'none';
+      document.getElementById('boton-volver-cambios').style.display = 'none';
     }
 
     if (intervaloPedidos) clearInterval(intervaloPedidos);
     intervaloPedidos = setInterval(function () {
       cargarReporteDia();
       cargarReporteSemanal();
+      cargarUltimosCambios();
     }, 6000);
   }
 
@@ -2475,6 +2589,11 @@
     document.getElementById('pestanas-dias-reporte').innerHTML = '';
     document.getElementById('contenedor-reporte').innerHTML = '';
     document.getElementById('contenedor-reporte-semanal').innerHTML = '';
+    document.getElementById('contenedor-cambios').innerHTML = '';
+    cantidadCambiosMostrar = 5;
+    document.querySelectorAll('#selector-cantidad-cambios button').forEach(function (b) {
+      b.classList.toggle('activo', Number(b.getAttribute('data-cantidad')) === 5);
+    });
     document.getElementById('reporte-semanal-producto').innerHTML = '';
     document.getElementById('boton-cancelar-edicion').style.display = 'none';
     document.getElementById('boton-guardar-pedido').textContent = 'Guardar pedido';
