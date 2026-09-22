@@ -774,7 +774,7 @@
     <section id="seccion-cambios">
       <button type="button" id="boton-volver-cambios" class="boton-volver" onclick="volverAlFormulario()" style="display:none;">← Volver al formulario principal</button>
       <h2>Últimos cambios del día</h2>
-      <p class="nota-actualizacion">Muestra los cambios más recientes al día que tengas elegido en "Ver Pedidos" — nuevos pedidos, ediciones (con el valor anterior) y pedidos borrados.</p>
+      <p class="nota-actualizacion">Muestra los cambios más recientes en los pedidos de HOY y de MAÑANA, sin importar qué día tengas elegido en "Ver Pedidos" — nuevos pedidos, ediciones (con el valor anterior) y pedidos borrados. Para revisar días distintos a hoy o mañana, usa "Ver Pedidos".</p>
       <div id="selector-cantidad-cambios" class="selector-cantidad">
         <button type="button" data-cantidad="2" onclick="elegirCantidadCambios(2)">2</button>
         <button type="button" data-cantidad="5" class="activo" onclick="elegirCantidadCambios(5)">5</button>
@@ -1156,7 +1156,6 @@
       boton.classList.toggle('activo', boton.getAttribute('data-fecha') === fecha);
     });
     cargarReporteDia();
-    cargarUltimosCambios();
   }
 
   // ---------- ÚLTIMOS CAMBIOS ----------
@@ -1203,12 +1202,17 @@
   }
 
   async function cargarUltimosCambios() {
-    const fecha = fechaReporteActual;
     const contenedor = document.getElementById('contenedor-cambios');
-    if (!fecha) { contenedor.innerHTML = ''; return; }
+
+    const hoy = new Date();
+    const hoyTexto = formatoFechaYMD(hoy);
+    const mananaFecha = new Date(hoy);
+    mananaFecha.setDate(hoy.getDate() + 1);
+    const mananaTexto = formatoFechaYMD(mananaFecha);
 
     const respuesta = await fetch(
-      SUPABASE_URL + '/rest/v1/historial_pedidos?select=*&fecha_venta=eq.' + fecha + '&order=fecha_cambio.desc&limit=' + cantidadCambiosMostrar,
+      SUPABASE_URL + '/rest/v1/historial_pedidos?select=*&fecha_venta=gte.' + hoyTexto + '&fecha_venta=lte.' + mananaTexto +
+      '&order=fecha_cambio.desc&limit=' + cantidadCambiosMostrar,
       { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + sesion.access_token } }
     );
     const cambios = await respuesta.json();
@@ -1218,7 +1222,7 @@
       return;
     }
     if (cambios.length === 0) {
-      contenedor.innerHTML = '<p class="sin-datos">No hay cambios registrados para este día.</p>';
+      contenedor.innerHTML = '<p class="sin-datos">No hay cambios registrados para hoy ni para mañana.</p>';
       return;
     }
     contenedor.innerHTML = cambios.map(renderizarCambio).join('');
@@ -2520,6 +2524,7 @@
         document.getElementById('reporte-semanal-fecha').value = lunesTexto;
         alCambiarSemanaReporte();
         await cargarReporteSemanal();
+        await cargarUltimosCambios();
       }
     } catch (error) {
       resultado.innerHTML = '<p class="mensaje-pedido error">No se pudo conectar. Intenta de nuevo.</p>';
@@ -2539,6 +2544,7 @@
     document.getElementById('fecha-reporte').value = new Date().toISOString().split('T')[0];
     await cargarCatalogos();
     alCambiarSemanaReporte();
+    await cargarUltimosCambios();
 
     llenarSelectorProductoSemanal();
     document.getElementById('reporte-semanal-fecha').value = new Date().toISOString().split('T')[0];
