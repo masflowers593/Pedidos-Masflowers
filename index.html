@@ -773,8 +773,12 @@
 
     <section id="seccion-cambios">
       <button type="button" id="boton-volver-cambios" class="boton-volver" onclick="volverAlFormulario()" style="display:none;">← Volver al formulario principal</button>
-      <h2>Últimos cambios del día</h2>
-      <p class="nota-actualizacion">Muestra los cambios más recientes en los pedidos de HOY y de MAÑANA, sin importar qué día tengas elegido en "Ver Pedidos" — nuevos pedidos, ediciones (con el valor anterior) y pedidos borrados. Para revisar días distintos a hoy o mañana, usa "Ver Pedidos".</p>
+      <h2>Últimos cambios</h2>
+      <p class="nota-actualizacion">Nuevos pedidos, ediciones (con el valor anterior) y pedidos borrados — solo de hoy o de mañana, sin importar qué día tengas elegido en "Ver Pedidos". Si un pedido se aplaza de un día a otro, aparece como "Borrado" en el día viejo y como "Nuevo pedido" en el día nuevo. Para revisar otros días, usa "Ver Pedidos".</p>
+      <div id="pestanas-cambios" class="pestanas-dias">
+        <button type="button" class="pestana-dia activo" data-cambios-dia="hoy" onclick="elegirDiaCambios('hoy')">Hoy</button>
+        <button type="button" class="pestana-dia" data-cambios-dia="manana" onclick="elegirDiaCambios('manana')">Mañana</button>
+      </div>
       <div id="selector-cantidad-cambios" class="selector-cantidad">
         <button type="button" data-cantidad="2" onclick="elegirCantidadCambios(2)">2</button>
         <button type="button" data-cantidad="5" class="activo" onclick="elegirCantidadCambios(5)">5</button>
@@ -1160,6 +1164,15 @@
 
   // ---------- ÚLTIMOS CAMBIOS ----------
   let cantidadCambiosMostrar = 5;
+  let diaCambiosActivo = 'hoy';
+
+  function elegirDiaCambios(dia) {
+    diaCambiosActivo = dia;
+    document.querySelectorAll('#pestanas-cambios .pestana-dia').forEach(function (b) {
+      b.classList.toggle('activo', b.getAttribute('data-cambios-dia') === dia);
+    });
+    cargarUltimosCambios();
+  }
 
   function elegirCantidadCambios(n) {
     cantidadCambiosMostrar = n;
@@ -1210,8 +1223,10 @@
     mananaFecha.setDate(hoy.getDate() + 1);
     const mananaTexto = formatoFechaYMD(mananaFecha);
 
+    const fechaFiltro = diaCambiosActivo === 'manana' ? mananaTexto : hoyTexto;
+
     const respuesta = await fetch(
-      SUPABASE_URL + '/rest/v1/historial_pedidos?select=*&fecha_venta=gte.' + hoyTexto + '&fecha_venta=lte.' + mananaTexto +
+      SUPABASE_URL + '/rest/v1/historial_pedidos?select=*&fecha_venta=eq.' + fechaFiltro +
       '&order=fecha_cambio.desc&limit=' + cantidadCambiosMostrar,
       { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + sesion.access_token } }
     );
@@ -1222,7 +1237,7 @@
       return;
     }
     if (cambios.length === 0) {
-      contenedor.innerHTML = '<p class="sin-datos">No hay cambios registrados para hoy ni para mañana.</p>';
+      contenedor.innerHTML = '<p class="sin-datos">No hay cambios registrados para ' + (diaCambiosActivo === 'manana' ? 'mañana' : 'hoy') + '.</p>';
       return;
     }
     contenedor.innerHTML = cambios.map(renderizarCambio).join('');
@@ -2597,8 +2612,12 @@
     document.getElementById('contenedor-reporte-semanal').innerHTML = '';
     document.getElementById('contenedor-cambios').innerHTML = '';
     cantidadCambiosMostrar = 5;
+    diaCambiosActivo = 'hoy';
     document.querySelectorAll('#selector-cantidad-cambios button').forEach(function (b) {
       b.classList.toggle('activo', Number(b.getAttribute('data-cantidad')) === 5);
+    });
+    document.querySelectorAll('#pestanas-cambios .pestana-dia').forEach(function (b) {
+      b.classList.toggle('activo', b.getAttribute('data-cambios-dia') === 'hoy');
     });
     document.getElementById('reporte-semanal-producto').innerHTML = '';
     document.getElementById('boton-cancelar-edicion').style.display = 'none';
