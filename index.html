@@ -808,6 +808,7 @@
   let sesion = null;
   let catalogos = {};
   let intervaloPedidos = null;
+  let intervaloRenovacionSesion = null;
   let pedidosActuales = [];
   let idPedidoEditando = null;
   let fechaReporteActual = null;
@@ -927,6 +928,15 @@
     sesion = renovada;
     guardarSesionEnStorage();
     await mostrarApp();
+  }
+
+  async function renovarTokenPeriodicamente() {
+    if (!sesion || !sesion.refresh_token) return;
+    const renovada = await refrescarSesion(sesion);
+    if (renovada) {
+      sesion = renovada;
+      guardarSesionEnStorage();
+    }
   }
 
   // ---------- CARGA DE CATÁLOGOS ----------
@@ -2595,6 +2605,9 @@
       cargarReporteSemanal();
       cargarUltimosCambios();
     }, 6000);
+
+    if (intervaloRenovacionSesion) clearInterval(intervaloRenovacionSesion);
+    intervaloRenovacionSesion = setInterval(renovarTokenPeriodicamente, 45 * 60 * 1000);
   }
 
   function cerrarSesion() {
@@ -2605,6 +2618,7 @@
     fechaReporteActual = null;
     borrarSesionDeStorage();
     if (intervaloPedidos) { clearInterval(intervaloPedidos); intervaloPedidos = null; }
+    if (intervaloRenovacionSesion) { clearInterval(intervaloRenovacionSesion); intervaloRenovacionSesion = null; }
     document.getElementById('app').style.display = 'none';
     document.getElementById('vista-vendedor').style.display = 'none';
     document.getElementById('pestanas-dias-reporte').innerHTML = '';
