@@ -1192,15 +1192,30 @@
     cargarUltimosCambios();
   }
 
-  function formatoHora(fechaISO) {
+  function formatoFechaHoraCambio(fechaISO) {
     const d = new Date(fechaISO);
     const horas = String(d.getHours()).padStart(2, '0');
     const minutos = String(d.getMinutes()).padStart(2, '0');
-    return horas + ':' + minutos;
+    const horaTexto = horas + ':' + minutos;
+
+    const ahora = new Date();
+    const hoyTexto = formatoFechaYMD(ahora);
+    const fechaCambioTexto = formatoFechaYMD(d);
+
+    const ayer = new Date(ahora);
+    ayer.setDate(ahora.getDate() - 1);
+    const ayerTexto = formatoFechaYMD(ayer);
+
+    if (fechaCambioTexto === hoyTexto) return 'Hoy ' + horaTexto;
+    if (fechaCambioTexto === ayerTexto) return 'Ayer ' + horaTexto;
+
+    const dia = String(d.getDate()).padStart(2, '0');
+    const mes = String(d.getMonth() + 1).padStart(2, '0');
+    return dia + '/' + mes + ' ' + horaTexto;
   }
 
   function renderizarCambio(c) {
-    const hora = formatoHora(c.fecha_cambio);
+    const hora = formatoFechaHoraCambio(c.fecha_cambio);
     const etiquetaTipo = c.tipo_cambio === 'creado' ? 'Nuevo pedido' : (c.tipo_cambio === 'editado' ? 'Editado' : 'Borrado');
     const contexto = (c.cliente_nombre || '—') + (c.producto_nombre ? ' · ' + c.producto_nombre : '');
     const usuario = c.usuario_nombre || '—';
