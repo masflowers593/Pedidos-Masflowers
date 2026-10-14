@@ -1104,7 +1104,8 @@
 
     const listo = p.completado === true;
     const celdaListo = '<td class="celda-listo"><input type="checkbox" id="listo-' + p.id + '" ' + (listo ? 'checked ' : '') +
-      'aria-label="Marcar pedido como listo" onchange="alMarcarListo(' + p.id + ', this)"></td>';
+      (sesion.rol === 'visualizador' ? '' : 'disabled title="Solo el visualizador marca los pedidos como listos" ') +
+      'aria-label="Pedido listo" onchange="alMarcarListo(' + p.id + ', this)"></td>';
 
     return '<tr' + (listo ? ' class="fila-completada"' : '') + '>' +
       celdaListo +
@@ -1128,6 +1129,7 @@
   let guardandoListo = 0;
 
   async function alMarcarListo(id, casilla) {
+    if (!sesion || sesion.rol !== 'visualizador') { casilla.checked = !casilla.checked; return; }
     const nuevoValor = casilla.checked;
     guardandoListo++;
     casilla.disabled = true;
