@@ -375,7 +375,36 @@
 
   @page { margin: 0; }
 
+  /* ===== Reporte semanal: selector de unidad ===== */
+  .selector-unidad { margin: 0; }
+  .selector-unidad button { padding: 10px 18px; font-size: 14px; }
+
+  /* ===== Lista de pedidos: casilla "Listo" ===== */
+  .celda-listo { width: 54px; text-align: center; }
+  .celda-listo input[type="checkbox"] { width: 24px; height: 24px; cursor: pointer; accent-color: var(--verde-oscuro); }
+  .tabla-pedidos tr.fila-completada td { background: var(--verde-suave); color: var(--gris-texto); }
+  .tabla-pedidos tr.fila-completada td:not(.celda-listo):not(.celda-acciones) { text-decoration: line-through; text-decoration-color: rgba(38,38,31,0.35); }
+  .avance-producto { display: inline-block; margin-left: 8px; font-size: 12px; font-weight: 600; color: var(--verde-oscuro); background: var(--verde-suave); border-radius: 999px; padding: 2px 10px; }
+  .avance-producto.completo { background: var(--verde-oscuro); color: #fff; }
+  .avance-dia { font-size: 13px; color: var(--gris-texto); margin: 0 0 14px; }
+
+  /* ===== Administrar usuarios ===== */
+  .acciones-barra { display: flex; gap: 8px; }
+  .fila-usuario { display: grid; grid-template-columns: 1.4fr 1fr 1fr auto auto; gap: 10px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--gris-borde); }
+  .fila-usuario .datos-usuario { min-width: 0; }
+  .fila-usuario .correo-usuario { font-size: 12px; color: var(--gris-texto); overflow-wrap: anywhere; }
+  .fila-usuario input[type="text"], .fila-usuario select { width: 100%; padding: 9px 10px; border: 1px solid var(--gris-borde); border-radius: 8px; font-family: inherit; font-size: 14px; background: #fff; }
+  .fila-usuario label.marca-admin { font-size: 13px; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .fila-usuario button { padding: 9px 14px; border-radius: 8px; border: 1px solid var(--verde-oscuro); background: var(--verde-oscuro); color: #fff; cursor: pointer; font-family: inherit; font-size: 13px; }
+  .fila-usuario button:disabled { opacity: 0.6; cursor: default; }
+  .etiqueta-sin-acceso { color: var(--rosa); font-weight: 600; }
+  @media (max-width: 760px) {
+    .fila-usuario { grid-template-columns: 1fr 1fr; }
+    .fila-usuario .datos-usuario { grid-column: 1 / -1; }
+  }
+
   @media print {
+    #seccion-usuarios { display: none !important; }
     #pantalla-login, #barra-superior, #vista-vendedor, .controles-reporte, #modal-observacion, .boton-volver, .pestanas-dias { display: none !important; }
     body { background: #fff; font-size: 12px; margin: 0; padding: 15mm 12mm; color: #000; }
     #contenedor-principal { max-width: none; padding: 0; }
@@ -443,7 +472,10 @@
       <span id="saludo"></span>
       <span id="chip-rol" class="chip"></span>
     </div>
-    <button onclick="cerrarSesion()">Cerrar sesión</button>
+    <div class="acciones-barra">
+      <button type="button" id="boton-admin-usuarios" onclick="abrirAdministrarUsuarios()" style="display:none;">Administrar usuarios</button>
+      <button onclick="cerrarSesion()">Cerrar sesión</button>
+    </div>
   </div>
 
   <main id="contenedor-principal">
@@ -756,12 +788,19 @@
 
     <section id="seccion-reporte-semanal">
       <button type="button" id="boton-volver-semanal" class="boton-volver" onclick="volverAlFormulario()" style="display:none;">← Volver al formulario principal</button>
-      <h2>Tallos comprometidos por semana</h2>
-      <p class="nota-actualizacion">Elige un producto y cualquier día de la semana que quieres revisar. Se muestra el total de tallos por grado y por día.</p>
+      <h2>Comprometido por semana</h2>
+      <p class="nota-actualizacion">Elige un producto y cualquier día de la semana que quieres revisar. Se muestra el total por grado y por día, en tallos o en ramos.</p>
       <div class="controles-reporte">
         <div class="campo">
           <label for="reporte-semanal-producto">Producto</label>
           <select id="reporte-semanal-producto" onchange="cargarReporteSemanal()"></select>
+        </div>
+        <div class="campo">
+          <label>Ver en</label>
+          <div id="selector-unidad-semanal" class="selector-cantidad selector-unidad">
+            <button type="button" data-unidad="tallos" class="activo" onclick="elegirUnidadSemanal('tallos')">Tallos</button>
+            <button type="button" data-unidad="ramos" onclick="elegirUnidadSemanal('ramos')">Ramos</button>
+          </div>
         </div>
         <div class="campo campo-fecha-reporte">
           <label for="reporte-semanal-fecha">Cualquier día de esa semana</label>
@@ -786,6 +825,14 @@
         <button type="button" data-cantidad="15" onclick="elegirCantidadCambios(15)">15</button>
       </div>
       <div id="contenedor-cambios"></div>
+    </section>
+
+    <section id="seccion-usuarios" style="display:none;">
+      <button type="button" class="boton-volver" onclick="volverDesdeUsuarios()">← Volver</button>
+      <h2>Administrar usuarios</h2>
+      <p class="nota-actualizacion">Aquí defines qué puede hacer cada persona. <strong>Vendedor</strong>: crea, edita y borra pedidos. <strong>Visualizador</strong>: solo ve los pedidos y marca los que ya están listos. <strong>Administrador</strong>: además puede entrar a esta pantalla. Las personas nuevas aparecen aquí como "Sin acceso" hasta que les asignes un rol.</p>
+      <div id="contenedor-usuarios"></div>
+      <p id="mensaje-usuarios" class="mensaje-pedido"></p>
     </section>
 
   </main>
@@ -858,6 +905,11 @@
       };
 
       await cargarPerfil();
+      if (!sesion.rol) {
+        sesion = null;
+        mostrarErrorLogin(TEXTO_SIN_ROL);
+        return;
+      }
       guardarSesionEnStorage();
       await mostrarApp();
 
@@ -870,15 +922,30 @@
 
   async function cargarPerfil() {
     const respuesta = await fetch(
-      SUPABASE_URL + '/rest/v1/perfiles?id=eq.' + sesion.user_id + '&select=nombre,rol',
+      SUPABASE_URL + '/rest/v1/perfiles?id=eq.' + sesion.user_id + '&select=nombre,rol,es_admin',
       { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + sesion.access_token } }
     );
     const filas = await respuesta.json();
-    if (filas.length > 0) {
+    if (respuesta.ok && filas.length > 0) {
       sesion.nombre = filas[0].nombre;
       sesion.rol = filas[0].rol;
+      sesion.es_admin = filas[0].es_admin === true;
+    } else {
+      sesion.nombre = null;
+      sesion.rol = null;
+      sesion.es_admin = false;
     }
   }
+
+  function mostrarErrorLogin(texto) {
+    const mensajeError = document.getElementById('mensaje-error');
+    mensajeError.textContent = texto;
+    const boton = document.getElementById('boton-entrar');
+    boton.disabled = false;
+    boton.textContent = 'Entrar';
+  }
+
+  const TEXTO_SIN_ROL = 'Tu usuario existe, pero todavía no tiene un rol asignado. Pide al administrador que te dé acceso e intenta de nuevo.';
 
   // ---------- MANTENER LA SESIÓN AL RECARGAR LA PÁGINA ----------
   // Se guarda solo mientras la pestaña/navegador siguen abiertos (sessionStorage),
@@ -906,7 +973,8 @@
         user_id: sesionGuardada.user_id,
         email: sesionGuardada.email,
         nombre: sesionGuardada.nombre,
-        rol: sesionGuardada.rol
+        rol: sesionGuardada.rol,
+        es_admin: sesionGuardada.es_admin === true
       };
     } catch (e) {
       return null;
@@ -926,6 +994,14 @@
     if (!renovada) { borrarSesionDeStorage(); return; }
 
     sesion = renovada;
+    // Se vuelve a leer el perfil por si el administrador cambió el rol mientras tanto.
+    await cargarPerfil();
+    if (!sesion.rol) {
+      sesion = null;
+      borrarSesionDeStorage();
+      mostrarErrorLogin(TEXTO_SIN_ROL);
+      return;
+    }
     guardarSesionEnStorage();
     await mostrarApp();
   }
@@ -934,7 +1010,22 @@
     if (!sesion || !sesion.refresh_token) return;
     const renovada = await refrescarSesion(sesion);
     if (renovada) {
+      const rolAnterior = sesion.rol;
+      const adminAnterior = sesion.es_admin;
       sesion = renovada;
+      const nombreAnterior = sesion.nombre;
+      try { await cargarPerfil(); } catch (e) { sesion.rol = null; }
+      if (!sesion.rol) {
+        // No se pudo leer el perfil (fallo momentáneo): se conservan los permisos anteriores.
+        sesion.rol = rolAnterior;
+        sesion.es_admin = adminAnterior;
+        sesion.nombre = nombreAnterior;
+      } else if (sesion.rol !== rolAnterior || sesion.es_admin !== adminAnterior) {
+        // Cambiaron sus permisos: se recarga para que la pantalla refleje el nuevo acceso.
+        guardarSesionEnStorage();
+        location.reload();
+        return;
+      }
       guardarSesionEnStorage();
     }
   }
@@ -1011,7 +1102,12 @@
       ? '<button type="button" class="boton-observacion" onclick="mostrarObservacionCompleta(' + p.id + ')">' + escaparHtml(truncarTexto(p.observacion, 28)) + '</button>'
       : '';
 
-    return '<tr>' +
+    const listo = p.completado === true;
+    const celdaListo = '<td class="celda-listo"><input type="checkbox" id="listo-' + p.id + '" ' + (listo ? 'checked ' : '') +
+      'aria-label="Marcar pedido como listo" onchange="alMarcarListo(' + p.id + ', this)"></td>';
+
+    return '<tr' + (listo ? ' class="fila-completada"' : '') + '>' +
+      celdaListo +
       '<td>' + cliente + marcacion + '</td>' +
       '<td>' + variedad + '</td>' +
       '<td>' + grado + '</td>' +
@@ -1024,6 +1120,41 @@
       '<td>' + observacionCelda + '</td>' +
       acciones +
       '</tr>';
+  }
+
+  // ---------- CASILLA "LISTO" (pedido completado) ----------
+  // Se bloquea el refresco automático mientras hay un guardado en curso para que
+  // la casilla no "salte" de vuelta justo después de marcarla.
+  let guardandoListo = 0;
+
+  async function alMarcarListo(id, casilla) {
+    const nuevoValor = casilla.checked;
+    guardandoListo++;
+    casilla.disabled = true;
+
+    // Se refleja de inmediato en pantalla (y en la copia local) para que se sienta rápido.
+    const pedido = pedidosActuales.find(function (p) { return p.id === id; });
+    if (pedido) pedido.completado = nuevoValor;
+    renderizarReporte(pedidosActuales);
+
+    try {
+      const respuesta = await fetch(SUPABASE_URL + '/rest/v1/rpc/marcar_pedido_completado', {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': 'Bearer ' + sesion.access_token,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ p_pedido_id: id, p_completado: nuevoValor })
+      });
+      if (!respuesta.ok) throw new Error('rpc ' + respuesta.status);
+    } catch (e) {
+      if (pedido) pedido.completado = !nuevoValor;
+      renderizarReporte(pedidosActuales);
+      alert('No se pudo guardar el cambio. Revisa tu internet e intenta de nuevo.');
+    } finally {
+      guardandoListo--;
+    }
   }
 
   function renderizarReporte(pedidos) {
@@ -1039,12 +1170,14 @@
 
     let totalGeneralTallos = 0;
     let totalGeneralCajas = 0;
-    let html = '';
+    const totalListos = pedidos.filter(function (p) { return p.completado === true; }).length;
+    let html = '<p class="avance-dia">Listos hoy: <strong>' + totalListos + ' de ' + pedidos.length + '</strong> pedidos</p>';
 
     nombresProductos.forEach(function (nombreProducto) {
       const filas = grupos[nombreProducto];
       let subtotalTallos = 0;
       let subtotalCajas = 0;
+      const listosGrupo = filas.filter(function (p) { return p.completado === true; }).length;
 
       const filasHtml = filas.map(function (p) {
         subtotalTallos += p.total_tallos;
@@ -1058,9 +1191,10 @@
       const encabezadoAcciones = sesion.rol === 'vendedor' ? '<th>Acciones</th>' : '';
 
       html += '<div class="grupo-producto">' +
-        '<h3>' + nombreProducto + ' <span class="conteo-grupo">(' + filas.length + ' pedido' + (filas.length === 1 ? '' : 's') + ')</span></h3>' +
+        '<h3>' + nombreProducto + ' <span class="conteo-grupo">(' + filas.length + ' pedido' + (filas.length === 1 ? '' : 's') + ')</span>' +
+        '<span class="avance-producto' + (listosGrupo === filas.length ? ' completo' : '') + '">' + listosGrupo + ' de ' + filas.length + ' listos</span></h3>' +
         '<div class="tabla-scroll"><table class="tabla-pedidos"><thead><tr>' +
-        '<th>Cliente</th><th>Variedad</th><th>Grado</th><th>Longitud</th><th>Empaque</th><th>Cantidad</th><th>Total tallos</th><th>Destino / Agencia</th><th>Vendedor</th><th>Observación</th>' + encabezadoAcciones +
+        '<th class="celda-listo">Listo</th><th>Cliente</th><th>Variedad</th><th>Grado</th><th>Longitud</th><th>Empaque</th><th>Cantidad</th><th>Total tallos</th><th>Destino / Agencia</th><th>Vendedor</th><th>Observación</th>' + encabezadoAcciones +
         '</tr></thead><tbody>' + filasHtml + '</tbody></table></div>' +
         '<p class="subtotal-producto">Subtotal ' + nombreProducto + ': ' + subtotalCajas + ' cajas · ' + subtotalTallos + ' tallos</p>' +
         '</div>';
@@ -1271,12 +1405,13 @@
   async function cargarReporteDia() {
     const fecha = fechaReporteActual;
     if (!fecha) return;
+    if (guardandoListo > 0) return;
 
     document.getElementById('fecha-impresion').textContent = 'Pedidos Masflowers — ' + fecha;
 
     const campos = 'id,fecha_venta,cliente_id,marcacion_id,producto_id,variedad_id,grado_id,longitud_tallo_id,' +
       'tipo_caja_id,tipo_capuchon_id,agencia_carga_id,destino_id,cantidad_cajas,ramos_por_caja,tallos_por_ramo,' +
-      'total_tallos,observacion,creado_por,' +
+      'total_tallos,observacion,creado_por,completado,' +
       'clientes(nombre),marcaciones(nombre),productos(nombre),variedades(nombre),grados(nombre),' +
       'longitudes_tallo(nombre),tipos_caja(nombre),tipos_capuchon(nombre),agencias_carga(nombre),destinos(nombre)';
 
@@ -1290,6 +1425,7 @@
       document.getElementById('contenedor-reporte').innerHTML = '<p class="sin-datos">No se pudo cargar el reporte.</p>';
       return;
     }
+    if (guardandoListo > 0 || fecha !== fechaReporteActual) return;
     pedidosActuales = pedidos;
     renderizarReporte(pedidos);
   }
@@ -1321,7 +1457,7 @@
     const domingoTexto = fechaParaOffset(lunesBase, 6);
 
     const respuesta = await fetch(
-      SUPABASE_URL + '/rest/v1/pedidos?select=grado_id,fecha_venta,total_tallos&producto_id=eq.' + productoId +
+      SUPABASE_URL + '/rest/v1/pedidos?select=grado_id,fecha_venta,total_tallos,cantidad_cajas,ramos_por_caja&producto_id=eq.' + productoId +
       '&fecha_venta=gte.' + lunesTexto + '&fecha_venta=lte.' + domingoTexto,
       { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + sesion.access_token } }
     );
@@ -1331,7 +1467,22 @@
       contenedor.innerHTML = '<p class="sin-datos">No se pudo cargar el reporte semanal.</p>';
       return;
     }
+    datosSemanalActuales = { filas: filas, productoId: productoId, lunesBase: lunesBase };
     renderizarReporteSemanal(filas, productoId, lunesBase);
+  }
+
+  // Unidad del reporte semanal: 'tallos' o 'ramos' (ramos = cajas × ramos por caja).
+  let unidadSemanal = 'tallos';
+  let datosSemanalActuales = null;
+
+  function elegirUnidadSemanal(unidad) {
+    unidadSemanal = unidad;
+    document.querySelectorAll('#selector-unidad-semanal button').forEach(function (b) {
+      b.classList.toggle('activo', b.getAttribute('data-unidad') === unidad);
+    });
+    if (datosSemanalActuales) {
+      renderizarReporteSemanal(datosSemanalActuales.filas, datosSemanalActuales.productoId, datosSemanalActuales.lunesBase);
+    }
   }
 
   function renderizarReporteSemanal(filas, productoId, lunesBase) {
@@ -1353,13 +1504,16 @@
       const offsetDia = Math.round((fechaPedido - lunesBase) / 86400000);
       if (offsetDia < 0 || offsetDia > 6) return;
       if (!matriz[p.grado_id]) matriz[p.grado_id] = [0, 0, 0, 0, 0, 0, 0];
-      matriz[p.grado_id][offsetDia] += p.total_tallos;
+      matriz[p.grado_id][offsetDia] += unidadSemanal === 'ramos'
+        ? p.cantidad_cajas * p.ramos_por_caja
+        : p.total_tallos;
     });
 
     const totalesPorDia = [0, 0, 0, 0, 0, 0, 0];
     let totalGeneral = 0;
 
-    let html = '<div class="tabla-scroll"><table class="tabla-pedidos"><thead><tr><th>Grado</th>';
+    let html = '<p class="avance-dia">Cantidades en <strong>' + (unidadSemanal === 'ramos' ? 'ramos' : 'tallos') + '</strong></p>' +
+      '<div class="tabla-scroll"><table class="tabla-pedidos"><thead><tr><th>Grado</th>';
     NOMBRES_DIAS_CORTOS.forEach(function (d) { html += '<th class="celda-numero">' + d + '</th>'; });
     html += '<th class="celda-numero">Total</th></tr></thead><tbody>';
 
@@ -1383,7 +1537,122 @@
     contenedor.innerHTML = html;
   }
 
+  // ---------- ADMINISTRAR USUARIOS (solo administrador) ----------
+  function ocultarTodasLasSecciones() {
+    ['vista-principal-vendedor', 'seccion-plantilla', 'seccion-lista', 'seccion-reporte-semanal',
+     'seccion-agregar-info', 'seccion-cambios', 'seccion-usuarios'].forEach(function (id) {
+      document.getElementById(id).style.display = 'none';
+    });
+  }
+
+  async function llamarRpc(nombre, cuerpo) {
+    const respuesta = await fetch(SUPABASE_URL + '/rest/v1/rpc/' + nombre, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': 'Bearer ' + sesion.access_token,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(cuerpo || {})
+    });
+    let datos = null;
+    try { datos = await respuesta.json(); } catch (e) { datos = null; }
+    return { ok: respuesta.ok, datos: datos };
+  }
+
+  function abrirAdministrarUsuarios() {
+    if (!sesion || !sesion.es_admin) return;
+    ocultarTodasLasSecciones();
+    document.getElementById('seccion-usuarios').style.display = 'block';
+    cargarUsuariosAdmin();
+  }
+
+  function volverDesdeUsuarios() {
+    document.getElementById('seccion-usuarios').style.display = 'none';
+    if (sesion.rol === 'vendedor') {
+      volverAlFormulario();
+    } else {
+      document.getElementById('seccion-lista').style.display = 'block';
+      document.getElementById('seccion-reporte-semanal').style.display = 'block';
+      document.getElementById('seccion-cambios').style.display = 'block';
+    }
+  }
+
+  async function cargarUsuariosAdmin() {
+    const contenedor = document.getElementById('contenedor-usuarios');
+    const mensaje = document.getElementById('mensaje-usuarios');
+    mensaje.textContent = '';
+    mensaje.className = 'mensaje-pedido';
+    contenedor.innerHTML = '<p class="sin-datos">Cargando usuarios...</p>';
+
+    let r;
+    try { r = await llamarRpc('listar_usuarios_admin', {}); }
+    catch (e) { contenedor.innerHTML = '<p class="sin-datos">No se pudo conectar. Intenta de nuevo.</p>'; return; }
+
+    if (!r.ok || !Array.isArray(r.datos)) {
+      contenedor.innerHTML = '<p class="sin-datos">No se pudo cargar la lista de usuarios. Si el problema continúa, avisa a quien administra la base de datos.</p>';
+      return;
+    }
+
+    contenedor.innerHTML = r.datos.map(function (u) {
+      const esYo = u.id === sesion.user_id;
+      const sinAcceso = !u.rol;
+      const nombreInicial = u.nombre || (u.email ? u.email.split('@')[0] : '');
+      return '<div class="fila-usuario" data-usuario-id="' + u.id + '">' +
+        '<div class="datos-usuario"><strong>' + escaparHtml(nombreInicial) + (esYo ? ' (tú)' : '') + '</strong>' +
+          (sinAcceso ? ' <span class="etiqueta-sin-acceso">Sin acceso</span>' : '') +
+          '<div class="correo-usuario">' + escaparHtml(u.email || '') + '</div></div>' +
+        '<input type="text" class="usuario-nombre" value="' + escaparHtml(nombreInicial) + '" placeholder="Nombre" aria-label="Nombre">' +
+        '<select class="usuario-rol" aria-label="Rol"' + (esYo ? ' disabled' : '') + '>' +
+          (sinAcceso ? '<option value="" selected>Elige un rol...</option>' : '') +
+          '<option value="vendedor"' + (u.rol === 'vendedor' ? ' selected' : '') + '>Vendedor</option>' +
+          '<option value="visualizador"' + (u.rol === 'visualizador' ? ' selected' : '') + '>Visualizador</option>' +
+        '</select>' +
+        '<label class="marca-admin"><input type="checkbox" class="usuario-admin"' + (u.es_admin ? ' checked' : '') + (esYo ? ' disabled' : '') + '> Administrador</label>' +
+        '<button type="button" onclick="guardarUsuarioAdmin(this)">Guardar</button>' +
+        '</div>';
+    }).join('') || '<p class="sin-datos">No hay usuarios.</p>';
+  }
+
+  async function guardarUsuarioAdmin(boton) {
+    const fila = boton.closest('.fila-usuario');
+    const mensaje = document.getElementById('mensaje-usuarios');
+    const id = fila.getAttribute('data-usuario-id');
+    const nombre = fila.querySelector('.usuario-nombre').value.trim();
+    const rol = fila.querySelector('.usuario-rol').value;
+    const esAdmin = fila.querySelector('.usuario-admin').checked;
+
+    mensaje.className = 'mensaje-pedido error';
+    if (!nombre) { mensaje.textContent = 'Escribe el nombre de la persona.'; return; }
+    if (!rol) { mensaje.textContent = 'Elige un rol (Vendedor o Visualizador) para dar acceso.'; return; }
+
+    boton.disabled = true;
+    boton.textContent = 'Guardando...';
+    try {
+      const r = await llamarRpc('asignar_perfil_usuario', { p_usuario_id: id, p_nombre: nombre, p_rol: rol, p_es_admin: esAdmin });
+      if (!r.ok) {
+        const detalle = r.datos && r.datos.message ? r.datos.message : 'No se pudo guardar.';
+        mensaje.textContent = detalle;
+      } else {
+        mensaje.className = 'mensaje-pedido exito';
+        mensaje.textContent = 'Cambios guardados para ' + nombre + '. Si esa persona ya tiene la app abierta, verá su nuevo acceso en unos minutos o al volver a entrar.';
+        await cargarUsuariosAdmin();
+        // cargarUsuariosAdmin limpia el mensaje; se vuelve a mostrar.
+        mensaje.className = 'mensaje-pedido exito';
+        mensaje.textContent = 'Cambios guardados para ' + nombre + '. Si esa persona ya tiene la app abierta, verá su nuevo acceso en unos minutos o al volver a entrar.';
+        // Se actualiza la lista de vendedores usada para mostrar nombres en el reporte.
+        try { const rp = await fetch(SUPABASE_URL + '/rest/v1/perfiles?select=*&order=nombre', { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + sesion.access_token } }); catalogos.perfiles = await rp.json(); } catch (e) { /* no es crítico */ }
+        return;
+      }
+    } catch (e) {
+      mensaje.textContent = 'No se pudo conectar. Intenta de nuevo.';
+    }
+    boton.disabled = false;
+    boton.textContent = 'Guardar';
+  }
+
   function mostrarSeccion(idSeccion) {
+    document.getElementById('seccion-usuarios').style.display = 'none';
     document.getElementById('vista-principal-vendedor').style.display = 'none';
     document.getElementById('seccion-plantilla').style.display = 'none';
     document.getElementById('seccion-lista').style.display = 'none';
@@ -1394,6 +1663,7 @@
   }
 
   function volverAlFormulario() {
+    document.getElementById('seccion-usuarios').style.display = 'none';
     document.getElementById('seccion-plantilla').style.display = 'none';
     document.getElementById('seccion-lista').style.display = 'none';
     document.getElementById('seccion-reporte-semanal').style.display = 'none';
@@ -2579,7 +2849,9 @@
     document.getElementById('pantalla-login').style.display = 'none';
     document.getElementById('app').style.display = 'block';
     document.getElementById('saludo').textContent = 'Hola, ' + sesion.nombre;
-    document.getElementById('chip-rol').textContent = sesion.rol;
+    document.getElementById('chip-rol').textContent = sesion.rol + (sesion.es_admin ? ' · administrador' : '');
+    document.getElementById('boton-admin-usuarios').style.display = sesion.es_admin ? 'inline-block' : 'none';
+    document.getElementById('seccion-usuarios').style.display = 'none';
 
     document.getElementById('fecha-reporte').value = new Date().toISOString().split('T')[0];
     await cargarCatalogos();
@@ -2649,6 +2921,14 @@
       b.classList.toggle('activo', b.getAttribute('data-cambios-dia') === 'hoy');
     });
     document.getElementById('reporte-semanal-producto').innerHTML = '';
+    unidadSemanal = 'tallos';
+    datosSemanalActuales = null;
+    guardandoListo = 0;
+    document.querySelectorAll('#selector-unidad-semanal button').forEach(function (b) {
+      b.classList.toggle('activo', b.getAttribute('data-unidad') === 'tallos');
+    });
+    document.getElementById('seccion-usuarios').style.display = 'none';
+    document.getElementById('contenedor-usuarios').innerHTML = '';
     document.getElementById('boton-cancelar-edicion').style.display = 'none';
     document.getElementById('boton-guardar-pedido').textContent = 'Guardar pedido';
     document.getElementById('resultado-plantilla').innerHTML = '';
