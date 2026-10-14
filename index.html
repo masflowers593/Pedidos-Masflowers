@@ -375,6 +375,21 @@
 
   @page { margin: 0; }
 
+  /* ===== Órdenes fijas ===== */
+  .boton-principal-fijas { background: var(--verde-oscuro) !important; color: #fff !important; border-color: var(--verde-oscuro) !important; }
+  .boton-principal-fijas:disabled { opacity: 0.6; cursor: default; }
+  .modal-caja.modal-grande { max-width: 720px; max-height: 90vh; }
+  .dias-checks { display: flex; flex-wrap: wrap; gap: 8px; }
+  .dias-checks label { display: inline-flex; align-items: center; gap: 6px; font-weight: 500; font-size: 14px; margin: 0; padding: 7px 12px; border: 1px solid var(--gris-borde); border-radius: 8px; cursor: pointer; }
+  .dias-checks input { width: auto; padding: 0; }
+  .total-fija { padding: 10px 12px; font-weight: 700; color: var(--verde-oscuro); }
+  .botones-modal-fija { display: flex; gap: 10px; }
+  .botones-modal-fija button { padding: 10px 18px; font-size: 14px; }
+  .etiqueta-subida { display: inline-block; margin-left: 6px; font-size: 11px; font-weight: 600; color: var(--verde-oscuro); background: var(--verde-suave); border-radius: 999px; padding: 1px 8px; }
+  .importar-fijas { margin-top: 28px; border-top: 1px solid var(--gris-borde); padding-top: 14px; }
+  .importar-fijas summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--gris-texto); }
+  .importar-fijas .controles-plantilla { margin-top: 10px; }
+
   /* ===== Reporte semanal: selector de unidad ===== */
   .selector-unidad { margin: 0; }
   .selector-unidad button { padding: 10px 18px; font-size: 14px; }
@@ -404,7 +419,7 @@
   }
 
   @media print {
-    #seccion-usuarios { display: none !important; }
+    #seccion-usuarios, #seccion-plantilla, #modal-fija { display: none !important; }
     #pantalla-login, #barra-superior, #vista-vendedor, .controles-reporte, #modal-observacion, .boton-volver, .pestanas-dias { display: none !important; }
     body { background: #fff; font-size: 12px; margin: 0; padding: 15mm 12mm; color: #000; }
     #contenedor-principal { max-width: none; padding: 0; }
@@ -483,7 +498,7 @@
     <div id="vista-vendedor" style="display:none;">
       <div id="vista-principal-vendedor">
         <div class="barra-botones-secciones">
-          <button type="button" onclick="mostrarSeccion('seccion-plantilla')">Cargar órdenes fijas de la semana</button>
+          <button type="button" onclick="abrirOrdenesFijas()">Órdenes fijas</button>
           <button type="button" onclick="mostrarSeccion('seccion-lista')">Ver Pedidos</button>
           <button type="button" onclick="mostrarSeccion('seccion-reporte-semanal')">Reporte Producto</button>
           <button type="button" onclick="mostrarSeccion('seccion-agregar-info')">Agregar información</button>
@@ -603,21 +618,33 @@
 
       <div id="seccion-plantilla" class="seccion-plantilla" style="display:none;">
         <button type="button" class="boton-volver" onclick="volverAlFormulario()">← Volver al formulario principal</button>
-        <h2>Cargar pedidos fijos de la semana</h2>
-        <p class="nota-actualizacion">Sube un archivo CSV con tus pedidos fijos, una sola vez por semana. Cada fila indica en qué día (o días) se repite ese pedido — si se repite varios días, sepáralos con el signo "+" en la misma celda, por ejemplo "Lunes+Miércoles+Viernes". Usa exactamente los mismos nombres que ya existen en el sistema (cliente, producto, variedad, etc.).</p>
-        <div class="controles-plantilla">
-          <button type="button" id="boton-descargar-plantilla" onclick="descargarPlantillaExcel()">Descargar plantilla de ejemplo</button>
-          <div class="campo">
-            <label for="fecha-plantilla">Cualquier día de esa semana</label>
-            <input type="date" id="fecha-plantilla">
+        <h2>Órdenes fijas</h2>
+        <p class="nota-actualizacion">Aquí viven los pedidos que se repiten cada semana. Edítalos aquí y, cuando quieras, súbelos a una semana con un solo clic. Los cambios que hagas aquí no modifican pedidos que ya subiste; si subes de nuevo la misma semana, solo se agregan los que faltan (nunca se duplican).</p>
+
+        <div class="controles-reporte">
+          <div class="campo campo-fecha-reporte">
+            <label for="fecha-plantilla">Semana a la que se suben (cualquier día de esa semana)</label>
+            <input type="date" id="fecha-plantilla" onchange="alCambiarSemanaFijas()">
           </div>
-          <div class="campo">
-            <label for="archivo-plantilla">Archivo CSV</label>
-            <input type="file" id="archivo-plantilla" accept=".csv">
+          <div class="botones-reporte">
+            <button type="button" id="boton-subir-fijas" class="boton-principal-fijas" onclick="subirOrdenesFijas()">Subir órdenes fijas a la semana</button>
+            <button type="button" onclick="abrirFormularioFija(null)">+ Nueva orden fija</button>
           </div>
-          <button type="button" id="boton-cargar-plantilla" onclick="cargarPlantillaCSV()">Cargar archivo</button>
         </div>
+        <p id="estado-semana-fijas" class="avance-dia"></p>
+
+        <div id="pestanas-dias-fijas" class="pestanas-dias"></div>
+        <div id="contenedor-fijas"></div>
         <div id="resultado-plantilla"></div>
+
+        <details class="importar-fijas">
+          <summary>Importar desde un archivo CSV (solo para la primera carga)</summary>
+          <p class="nota-actualizacion">Usa las columnas: Día, Cliente, Marcación, Producto, Variedad, Grado, Longitud, Tipo Caja, Tipo Capuchón, Cantidad Cajas, Ramos por Caja, Tallos por Ramo, Destino, Agencia de Carga, Observación. Si un pedido se repite varios días, escribe por ejemplo "Lunes+Miércoles".</p>
+          <div class="controles-plantilla">
+            <input type="file" id="archivo-plantilla" accept=".csv">
+            <button type="button" id="boton-importar-fijas" onclick="importarFijasCSV()">Importar al módulo</button>
+          </div>
+        </details>
       </div>
 
       <div id="seccion-agregar-info" style="display:none;">
@@ -838,6 +865,38 @@
   </main>
 </div>
 
+<div id="modal-fija" class="modal-overlay" style="display:none;" onclick="cerrarFormularioFija()">
+  <div class="modal-caja modal-grande" onclick="event.stopPropagation()">
+    <h3 id="titulo-modal-fija">Nueva orden fija</h3>
+    <div class="campo campo-ancho">
+      <label>Día(s) de la semana</label>
+      <div id="of-dias" class="dias-checks"></div>
+    </div>
+    <div class="grupo-campos">
+      <div class="campo"><label for="of-cliente">Cliente *</label><select id="of-cliente" onchange="alCambiarClienteFija()"></select></div>
+      <div class="campo"><label for="of-marcacion">Marcación</label><select id="of-marcacion"></select></div>
+      <div class="campo"><label for="of-producto">Producto *</label><select id="of-producto" onchange="alCambiarProductoFija()"></select></div>
+      <div class="campo"><label for="of-variedad">Variedad *</label><select id="of-variedad"></select></div>
+      <div class="campo"><label for="of-grado">Grado *</label><select id="of-grado"></select></div>
+      <div class="campo"><label for="of-longitud">Longitud del tallo *</label><select id="of-longitud"></select></div>
+      <div class="campo"><label for="of-caja">Tipo de caja *</label><select id="of-caja"></select></div>
+      <div class="campo"><label for="of-capuchon">Tipo de capuchón</label><select id="of-capuchon"></select></div>
+      <div class="campo"><label for="of-cajas">Cantidad de cajas *</label><input type="number" id="of-cajas" min="1" inputmode="numeric" oninput="actualizarTotalFija()"></div>
+      <div class="campo"><label for="of-ramos">Ramos por caja *</label><input type="number" id="of-ramos" min="1" inputmode="numeric" oninput="actualizarTotalFija()"></div>
+      <div class="campo"><label for="of-tallos">Tallos por ramo *</label><input type="number" id="of-tallos" min="1" inputmode="numeric" oninput="actualizarTotalFija()"></div>
+      <div class="campo"><label>Total de tallos</label><div id="of-total" class="total-fija">—</div></div>
+      <div class="campo"><label for="of-agencia">Agencia de carga</label><select id="of-agencia"></select></div>
+      <div class="campo"><label for="of-destino">Destino</label><select id="of-destino"></select></div>
+      <div class="campo campo-ancho"><label for="of-obs">Observación</label><textarea id="of-obs" rows="2"></textarea></div>
+    </div>
+    <p id="mensaje-modal-fija" class="mensaje-pedido"></p>
+    <div class="botones-modal-fija">
+      <button type="button" id="boton-guardar-fija" class="boton-principal-fijas" onclick="guardarFija()">Guardar</button>
+      <button type="button" onclick="cerrarFormularioFija()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
 <div id="modal-observacion" class="modal-overlay" style="display:none;" onclick="cerrarModalObservacion()">
   <div class="modal-caja" onclick="event.stopPropagation()">
     <h3>Observación completa</h3>
@@ -846,7 +905,6 @@
   </div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 <script>
   // ======= CONFIGURACIÓN DE CONEXIÓN A SUPABASE =======
   const SUPABASE_URL = 'https://jfmzqszcnwwluwivjvvr.supabase.co';
@@ -2300,258 +2358,6 @@
     return false;
   }
 
-  // ---------- PLANTILLA CSV (PEDIDOS FIJOS SEMANALES) ----------
-  function letraColumna(numero) {
-    let letra = '';
-    while (numero > 0) {
-      const resto = (numero - 1) % 26;
-      letra = String.fromCharCode(65 + resto) + letra;
-      numero = Math.floor((numero - 1) / 26);
-    }
-    return letra;
-  }
-
-  async function descargarPlantillaExcel() {
-    const boton = document.getElementById('boton-descargar-plantilla');
-    if (typeof ExcelJS === 'undefined') {
-      alert('No se pudo cargar el generador de Excel (revisa tu conexión a internet) e intenta de nuevo.');
-      return;
-    }
-
-    if (boton) { boton.disabled = true; boton.textContent = 'Generando...'; }
-
-    try {
-      const wb = new ExcelJS.Workbook();
-      const FUENTE = 'Arial';
-      const VERDE = 'FF1F4D3A';
-      const GRIS_CLARO = 'FFF5F4F0';
-
-      // ===== Hoja: Instrucciones =====
-      const wsInfo = wb.addWorksheet('Instrucciones');
-      wsInfo.getColumn(1).width = 100;
-      wsInfo.views = [{ showGridLines: false }];
-      const lineas = [
-        ['Cómo usar esta plantilla', true, 13],
-        ['', false, 10],
-        ['1. Ve a la pestaña "Pedidos Fijos". La fila 2 tiene un ejemplo ya lleno.', false, 10],
-        ['2. Llena una fila por cada pedido fijo, usando los menús desplegables.', false, 10],
-        ['3. Si un pedido se repite varios días, crea una fila por cada día.', false, 10],
-        ['4. Cliente y Marcación ya tienen desplegable, con los datos reales de tu sistema al momento de descargar esta plantilla.', false, 10],
-        ['', false, 10],
-        ['Cómo exportar a CSV', true, 12],
-        ['Con "Pedidos Fijos" activa: Archivo > Guardar como > "CSV UTF-8 (delimitado por comas)".', false, 10],
-        ['', false, 10],
-        ['Esta plantilla es una foto del momento en que la descargaste. Si agregas clientes o productos nuevos después, descarga una nueva desde el botón "Descargar plantilla de ejemplo".', false, 10],
-      ];
-      lineas.forEach(function (linea, i) {
-        const celda = wsInfo.getCell(i + 1, 1);
-        celda.value = linea[0];
-        celda.font = { name: FUENTE, size: linea[2], bold: linea[1] };
-        celda.alignment = { wrapText: true, vertical: 'top' };
-      });
-
-      // ===== Hoja: Pedidos Fijos =====
-      const ws = wb.addWorksheet('Pedidos Fijos');
-      ws.views = [{ showGridLines: false, state: 'frozen', ySplit: 1 }];
-
-      const encabezados = ['Día', 'Cliente', 'Marcación', 'Producto', 'Variedad', 'Grado', 'Longitud',
-        'Tipo Caja', 'Tipo Capuchón', 'Cantidad Cajas', 'Ramos por Caja', 'Tallos por Ramo',
-        'Destino', 'Agencia de Carga', 'Observación'];
-      const anchos = [12, 22, 16, 14, 16, 18, 10, 26, 20, 14, 14, 14, 16, 20, 24];
-
-      encabezados.forEach(function (texto, i) {
-        ws.getColumn(i + 1).width = anchos[i];
-        const celda = ws.getCell(1, i + 1);
-        celda.value = texto;
-        celda.font = { name: FUENTE, size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
-        celda.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: VERDE } };
-        celda.alignment = { horizontal: 'center', vertical: 'center', wrapText: true };
-      });
-      ws.getRow(1).height = 32;
-
-      const DIAS_PLANTILLA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
-      const primerProducto = catalogos.productos[0] || null;
-      const primeraVariedad = primerProducto ? catalogos.variedades.find(function (v) { return v.producto_id === primerProducto.id; }) : null;
-      const primerGrado = primerProducto ? catalogos.grados.find(function (g) { return g.producto_id === primerProducto.id; }) : null;
-
-      const filaEjemplo = [
-        'Lunes', 'Nombre del cliente', '', primerProducto ? primerProducto.nombre : 'Producto',
-        primeraVariedad ? primeraVariedad.nombre : '', primerGrado ? primerGrado.nombre : '',
-        (catalogos.longitudes_tallo[0] && catalogos.longitudes_tallo[0].nombre) || '40 cm',
-        (catalogos.tipos_caja[0] && catalogos.tipos_caja[0].nombre) || '', '', 10, 20, 25, '', '',
-        'Pedido fijo semanal (fila de ejemplo, bórrala)'
-      ];
-      filaEjemplo.forEach(function (valor, i) {
-        const celda = ws.getCell(2, i + 1);
-        celda.value = valor;
-        celda.font = { name: FUENTE, size: 10, italic: true, color: { argb: 'FF808080' } };
-      });
-
-      const FILAS_EN_BLANCO = 60;
-      const TOTAL_FILAS = 2 + FILAS_EN_BLANCO;
-      for (let f = 3; f <= TOTAL_FILAS; f++) {
-        for (let c = 1; c <= encabezados.length; c++) {
-          ws.getCell(f, c).font = { name: FUENTE, size: 10 };
-        }
-      }
-
-      // ===== Hoja: Listas =====
-      const wl = wb.addWorksheet('Listas');
-      wl.views = [{ showGridLines: false }];
-
-      function escribirLista(col, titulo, valores) {
-        const celdaTitulo = wl.getCell(1, col);
-        celdaTitulo.value = titulo;
-        celdaTitulo.font = { name: FUENTE, bold: true };
-        celdaTitulo.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: GRIS_CLARO } };
-        valores.forEach(function (valor, i) {
-          wl.getCell(i + 2, col).value = valor;
-          wl.getCell(i + 2, col).font = { name: FUENTE, size: 10 };
-        });
-        wl.getColumn(col).width = 22;
-        return col;
-      }
-
-      function definirNombre(referencia, nombre) { wb.definedNames.add(referencia, nombre); }
-
-      function rangoNombre(col, cantidad) {
-        if (cantidad < 1) cantidad = 1;
-        const letra = letraColumna(col);
-        return "'Listas'!$" + letra + '$2:$' + letra + '$' + (1 + cantidad);
-      }
-
-      const colDias = escribirLista(1, 'Día', DIAS_PLANTILLA);
-      const colProductos = escribirLista(2, 'Producto', catalogos.productos.map(function (p) { return p.nombre; }));
-      const colLongitudes = escribirLista(3, 'Longitud', catalogos.longitudes_tallo.map(function (x) { return x.nombre; }));
-      const colCaja = escribirLista(4, 'Tipo Caja', catalogos.tipos_caja.map(function (x) { return x.nombre; }));
-      const colCapuchon = escribirLista(5, 'Tipo Capuchón', catalogos.tipos_capuchon.map(function (x) { return x.nombre; }));
-      const colDestino = escribirLista(6, 'Destino', catalogos.destinos.map(function (x) { return x.nombre; }));
-      const colAgencia = escribirLista(7, 'Agencia de Carga', catalogos.agencias_carga.map(function (x) { return x.nombre; }));
-      const colClientes = escribirLista(8, 'Cliente', catalogos.clientes.map(function (x) { return x.nombre; }));
-
-      definirNombre(rangoNombre(colDias, DIAS_PLANTILLA.length), 'Dias');
-      definirNombre(rangoNombre(colProductos, catalogos.productos.length), 'Productos');
-      definirNombre(rangoNombre(colLongitudes, catalogos.longitudes_tallo.length), 'Longitudes');
-      definirNombre(rangoNombre(colCaja, catalogos.tipos_caja.length), 'TiposCaja');
-      definirNombre(rangoNombre(colCapuchon, catalogos.tipos_capuchon.length), 'TiposCapuchon');
-      definirNombre(rangoNombre(colDestino, catalogos.destinos.length), 'Destinos');
-      definirNombre(rangoNombre(colAgencia, catalogos.agencias_carga.length), 'Agencias');
-      definirNombre(rangoNombre(colClientes, catalogos.clientes.length), 'Clientes');
-
-      // --- Mapa Producto -> rango de Variedad / Grado (por id) ---
-      const colMapaProd = 10; // columna J
-      wl.getCell(1, colMapaProd).value = 'Producto';
-      wl.getCell(1, colMapaProd + 1).value = 'ClaveVariedad';
-      wl.getCell(1, colMapaProd + 2).value = 'ClaveGrado';
-
-      let colDatosProd = colMapaProd + 4;
-      catalogos.productos.forEach(function (p, idx) {
-        const variedadesProd = catalogos.variedades.filter(function (v) { return v.producto_id === p.id; });
-        const gradosProd = catalogos.grados.filter(function (g) { return g.producto_id === p.id; });
-        const claveVar = 'Var_' + p.id;
-        const claveGra = 'Gra_' + p.id;
-
-        wl.getCell(idx + 2, colMapaProd).value = p.nombre;
-        wl.getCell(idx + 2, colMapaProd + 1).value = claveVar;
-        wl.getCell(idx + 2, colMapaProd + 2).value = claveGra;
-
-        const colVar = colDatosProd;
-        const colGra = colDatosProd + 1;
-        wl.getCell(1, colVar).value = 'Variedad · ' + p.nombre;
-        wl.getCell(1, colGra).value = 'Grado · ' + p.nombre;
-        wl.getColumn(colVar).width = 20;
-        wl.getColumn(colGra).width = 20;
-
-        variedadesProd.forEach(function (v, i) { wl.getCell(i + 2, colVar).value = v.nombre; });
-        gradosProd.forEach(function (g, i) { wl.getCell(i + 2, colGra).value = g.nombre; });
-
-        definirNombre(rangoNombre(colVar, variedadesProd.length), claveVar);
-        definirNombre(rangoNombre(colGra, gradosProd.length), claveGra);
-
-        colDatosProd += 2;
-      });
-      const filasMapaProd = Math.max(catalogos.productos.length, 1);
-      const rangoMapaProd = "'Listas'!$" + letraColumna(colMapaProd) + '$2:$' + letraColumna(colMapaProd + 2) + '$' + (1 + filasMapaProd);
-
-      // --- Mapa Cliente -> rango de Marcación (por id) ---
-      const colMapaCli = colDatosProd + 1;
-      wl.getCell(1, colMapaCli).value = 'Cliente';
-      wl.getCell(1, colMapaCli + 1).value = 'ClaveMarcacion';
-
-      let colDatosCli = colMapaCli + 3;
-      catalogos.clientes.forEach(function (cli, idx) {
-        const marcacionesCli = catalogos.marcaciones.filter(function (m) { return m.cliente_id === cli.id; });
-        const claveMar = 'Mar_' + cli.id;
-
-        wl.getCell(idx + 2, colMapaCli).value = cli.nombre;
-        wl.getCell(idx + 2, colMapaCli + 1).value = claveMar;
-
-        const colMar = colDatosCli;
-        wl.getCell(1, colMar).value = 'Marcación · ' + cli.nombre;
-        wl.getColumn(colMar).width = 20;
-        marcacionesCli.forEach(function (m, i) { wl.getCell(i + 2, colMar).value = m.nombre; });
-
-        definirNombre(rangoNombre(colMar, marcacionesCli.length), claveMar);
-        colDatosCli += 1;
-      });
-      const filasMapaCli = Math.max(catalogos.clientes.length, 1);
-      const rangoMapaCli = "'Listas'!$" + letraColumna(colMapaCli) + '$2:$' + letraColumna(colMapaCli + 1) + '$' + (1 + filasMapaCli);
-
-      // ===== Validaciones en "Pedidos Fijos" =====
-      function validacionRango(rango, formula, tituloError, mensajeError) {
-        ws.dataValidations.add(rango, {
-          type: 'list', allowBlank: true, formulae: [formula],
-          showErrorMessage: true, errorTitle: tituloError || 'Valor no válido',
-          error: mensajeError || 'Elige un valor de la lista.',
-        });
-      }
-
-      validacionRango('A2:A' + TOTAL_FILAS, 'Dias');
-      validacionRango('D2:D' + TOTAL_FILAS, 'Productos');
-      validacionRango('G2:G' + TOTAL_FILAS, 'Longitudes');
-      validacionRango('H2:H' + TOTAL_FILAS, 'TiposCaja');
-      validacionRango('I2:I' + TOTAL_FILAS, 'TiposCapuchon');
-      validacionRango('M2:M' + TOTAL_FILAS, 'Destinos');
-      validacionRango('N2:N' + TOTAL_FILAS, 'Agencias');
-
-      if (catalogos.clientes.length > 0) {
-        validacionRango('B2:B' + TOTAL_FILAS, 'Clientes');
-        validacionRango('C2:C' + TOTAL_FILAS,
-          'INDIRECT(VLOOKUP($B2,' + rangoMapaCli + ',2,FALSE))',
-          'Elige un Cliente primero', 'Elige primero un Cliente en esta fila.');
-      }
-
-      validacionRango('E2:E' + TOTAL_FILAS,
-        'INDIRECT(VLOOKUP($D2,' + rangoMapaProd + ',2,FALSE))',
-        'Elige un Producto primero', 'Elige primero un Producto en esta fila.');
-      validacionRango('F2:F' + TOTAL_FILAS,
-        'INDIRECT(VLOOKUP($D2,' + rangoMapaProd + ',3,FALSE))',
-        'Elige un Producto primero', 'Elige primero un Producto en esta fila.');
-
-      ['J', 'K', 'L'].forEach(function (col) {
-        ws.dataValidations.add(col + '2:' + col + TOTAL_FILAS, {
-          type: 'whole', operator: 'greaterThan', formulae: [0], allowBlank: true,
-          showErrorMessage: true, errorTitle: 'Número no válido',
-          error: 'Debe ser un número entero mayor a 0.',
-        });
-      });
-
-      const buffer = await wb.xlsx.writeBuffer();
-      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-      const enlace = document.createElement('a');
-      enlace.href = URL.createObjectURL(blob);
-      enlace.download = 'plantilla_pedidos_masflowers.xlsx';
-      document.body.appendChild(enlace);
-      enlace.click();
-      document.body.removeChild(enlace);
-      URL.revokeObjectURL(enlace.href);
-    } catch (error) {
-      alert('No se pudo generar el archivo: ' + error.message);
-    }
-
-    if (boton) { boton.disabled = false; boton.textContent = 'Descargar plantilla de ejemplo'; }
-  }
-
   function detectarDelimitador(texto) {
     const primeraLinea = texto.split(/\r?\n/)[0] || '';
     const comas = (primeraLinea.match(/,/g) || []).length;
@@ -2648,9 +2454,413 @@
     return formatoFechaYMD(fecha);
   }
 
-  async function cargarPlantillaCSV() {
-    const archivoInput = document.getElementById('archivo-plantilla');
+  // ---------- ÓRDENES FIJAS ----------
+  let ordenesFijas = [];
+  let fijasSubidasSemana = {};   // { id_orden_fija: true } para la semana elegida
+  let diaFijasActivo = 1;        // 1 = Lunes ... 7 = Domingo
+  let idFijaEditando = null;
+  let tablaFijasDisponible = true;
+
+  function nombreDeCatalogo(lista, id) {
+    if (id === null || id === undefined) return null;
+    const item = (catalogos[lista] || []).find(function (i) { return i.id === id; });
+    return item ? item.nombre : null;
+  }
+
+  function numeroSemanaISO(fecha) {
+    const d = new Date(Date.UTC(fecha.getFullYear(), fecha.getMonth(), fecha.getDate()));
+    const dia = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - dia);
+    const inicioAnio = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    return Math.ceil(((d - inicioAnio) / 86400000 + 1) / 7);
+  }
+
+  function formatoCorto(fecha) {
+    return String(fecha.getDate()).padStart(2, '0') + '/' + String(fecha.getMonth() + 1).padStart(2, '0');
+  }
+
+  function lunesSiguiente() {
+    const hoy = new Date();
+    const lunes = lunesDeLaSemana(formatoFechaYMD(hoy));
+    lunes.setDate(lunes.getDate() + 7);
+    return lunes;
+  }
+
+  function abrirOrdenesFijas() {
+    mostrarSeccion('seccion-plantilla');
+    const campoFecha = document.getElementById('fecha-plantilla');
+    if (!campoFecha.value || campoFecha.getAttribute('data-tocado') !== '1') {
+      campoFecha.value = formatoFechaYMD(lunesSiguiente());
+    }
+    document.getElementById('resultado-plantilla').innerHTML = '';
+    cargarOrdenesFijas();
+  }
+
+  function alCambiarSemanaFijas() {
+    document.getElementById('fecha-plantilla').setAttribute('data-tocado', '1');
+    cargarOrdenesFijas();
+  }
+
+  function etiquetaSemanaFijas() {
     const fecha = document.getElementById('fecha-plantilla').value;
+    if (!fecha) return null;
+    const lunes = lunesDeLaSemana(fecha);
+    const domingo = new Date(lunes);
+    domingo.setDate(lunes.getDate() + 6);
+    return { lunes: lunes, domingo: domingo, numero: numeroSemanaISO(lunes), texto: formatoCorto(lunes) + ' al ' + formatoCorto(domingo) };
+  }
+
+  async function cargarOrdenesFijas() {
+    const contenedor = document.getElementById('contenedor-fijas');
+    const semana = etiquetaSemanaFijas();
+    if (!semana) return;
+
+    const cabeceras = { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + sesion.access_token };
+    const lunesTexto = formatoFechaYMD(semana.lunes);
+    const domingoTexto = formatoFechaYMD(semana.domingo);
+
+    let respFijas, respSubidas;
+    try {
+      respFijas = await fetch(SUPABASE_URL + '/rest/v1/ordenes_fijas?select=*&order=dia_semana.asc,id.asc', { headers: cabeceras });
+      respSubidas = await fetch(SUPABASE_URL + '/rest/v1/pedidos?select=orden_fija_id&orden_fija_id=not.is.null&fecha_venta=gte.' + lunesTexto + '&fecha_venta=lte.' + domingoTexto, { headers: cabeceras });
+    } catch (e) {
+      contenedor.innerHTML = '<p class="sin-datos">No se pudo conectar. Revisa tu internet e intenta de nuevo.</p>';
+      return;
+    }
+
+    if (!respFijas.ok || !respSubidas.ok) {
+      tablaFijasDisponible = false;
+      contenedor.innerHTML = '<p class="mensaje-pedido error">Falta preparar la base de datos para las órdenes fijas (ejecutar el SQL "ordenes_fijas"). Cuando esté listo, vuelve a abrir esta pantalla.</p>';
+      document.getElementById('pestanas-dias-fijas').innerHTML = '';
+      return;
+    }
+    tablaFijasDisponible = true;
+    ordenesFijas = await respFijas.json();
+    const subidas = await respSubidas.json();
+    fijasSubidasSemana = {};
+    subidas.forEach(function (s) { fijasSubidasSemana[s.orden_fija_id] = true; });
+
+    renderizarFijas();
+  }
+
+  function renderizarFijas() {
+    const semana = etiquetaSemanaFijas();
+    const boton = document.getElementById('boton-subir-fijas');
+    const estado = document.getElementById('estado-semana-fijas');
+
+    if (semana) {
+      boton.textContent = 'Subir órdenes fijas a la semana ' + semana.numero + ' (' + semana.texto + ')';
+      const total = ordenesFijas.length;
+      const subidas = ordenesFijas.filter(function (f) { return fijasSubidasSemana[f.id]; }).length;
+      boton.disabled = total === 0 || subidas === total;
+      if (total === 0) {
+        estado.textContent = 'Todavía no tienes órdenes fijas. Agrega una con "+ Nueva orden fija" o importa tu archivo CSV.';
+      } else if (subidas === total) {
+        estado.textContent = 'Semana ' + semana.numero + ': las ' + total + ' órdenes fijas ya están subidas.';
+      } else {
+        estado.textContent = 'Semana ' + semana.numero + ': ' + subidas + ' de ' + total + ' órdenes fijas ya subidas; faltan ' + (total - subidas) + '.';
+      }
+    }
+
+    // Pestañas por día con conteo
+    const contenedorTabs = document.getElementById('pestanas-dias-fijas');
+    contenedorTabs.innerHTML = NOMBRES_DIAS_TABS.map(function (nombre, i) {
+      const dia = i + 1;
+      const n = ordenesFijas.filter(function (f) { return f.dia_semana === dia; }).length;
+      return '<button type="button" class="pestana-dia' + (dia === diaFijasActivo ? ' activo' : '') + '" onclick="elegirDiaFijas(' + dia + ')">' + nombre + ' (' + n + ')</button>';
+    }).join('');
+
+    // Lista del día, agrupada por producto
+    const contenedor = document.getElementById('contenedor-fijas');
+    const delDia = ordenesFijas.filter(function (f) { return f.dia_semana === diaFijasActivo; });
+    if (delDia.length === 0) {
+      contenedor.innerHTML = '<p class="sin-datos">No hay órdenes fijas para este día.</p>';
+      return;
+    }
+
+    const grupos = {};
+    delDia.forEach(function (f) {
+      const nombreProducto = nombreDeCatalogo('productos', f.producto_id) || 'Sin producto';
+      if (!grupos[nombreProducto]) grupos[nombreProducto] = [];
+      grupos[nombreProducto].push(f);
+    });
+
+    let totalCajas = 0;
+    let totalTallos = 0;
+    let html = '';
+    Object.keys(grupos).sort(function (a, b) { return a.localeCompare(b); }).forEach(function (nombreProducto) {
+      const filas = grupos[nombreProducto];
+      let subCajas = 0;
+      let subTallos = 0;
+      const filasHtml = filas.map(function (f) {
+        const tallos = f.cantidad_cajas * f.ramos_por_caja * f.tallos_por_ramo;
+        subCajas += f.cantidad_cajas;
+        subTallos += tallos;
+        const marcacion = nombreDeCatalogo('marcaciones', f.marcacion_id);
+        const capuchon = nombreDeCatalogo('tipos_capuchon', f.tipo_capuchon_id);
+        const destino = nombreDeCatalogo('destinos', f.destino_id) || 'Sin definir';
+        const agencia = nombreDeCatalogo('agencias_carga', f.agencia_carga_id);
+        const subida = fijasSubidasSemana[f.id] ? '<span class="etiqueta-subida">subida</span>' : '';
+        const obs = f.observacion ? '<span title="' + escaparHtml(f.observacion) + '">' + escaparHtml(truncarTexto(f.observacion, 28)) + '</span>' : '';
+        return '<tr>' +
+          '<td>' + escaparHtml((nombreDeCatalogo('clientes', f.cliente_id) || '—') + (marcacion ? ' (' + marcacion + ')' : '')) + subida + '</td>' +
+          '<td>' + escaparHtml(nombreDeCatalogo('variedades', f.variedad_id) || '—') + '</td>' +
+          '<td>' + escaparHtml(nombreDeCatalogo('grados', f.grado_id) || '—') + '</td>' +
+          '<td>' + escaparHtml(nombreDeCatalogo('longitudes_tallo', f.longitud_tallo_id) || '—') + '</td>' +
+          '<td>' + escaparHtml((nombreDeCatalogo('tipos_caja', f.tipo_caja_id) || '—') + (capuchon ? ' · ' + capuchon : '')) + '</td>' +
+          '<td>' + f.cantidad_cajas + ' × ' + f.ramos_por_caja + ' × ' + f.tallos_por_ramo + '</td>' +
+          '<td><strong>' + tallos + '</strong></td>' +
+          '<td>' + escaparHtml(destino + (agencia ? ' / ' + agencia : '')) + '</td>' +
+          '<td>' + obs + '</td>' +
+          '<td class="celda-acciones">' +
+            '<button type="button" class="boton-fila" onclick="abrirFormularioFija(' + f.id + ')">Editar</button>' +
+            '<button type="button" class="boton-fila boton-borrar" onclick="eliminarFija(' + f.id + ')">Eliminar</button>' +
+          '</td></tr>';
+      }).join('');
+      totalCajas += subCajas;
+      totalTallos += subTallos;
+      html += '<div class="grupo-producto"><h3>' + escaparHtml(nombreProducto) + ' <span class="conteo-grupo">(' + filas.length + ' orden' + (filas.length === 1 ? '' : 'es') + ')</span></h3>' +
+        '<div class="tabla-scroll"><table class="tabla-pedidos"><thead><tr>' +
+        '<th>Cliente</th><th>Variedad</th><th>Grado</th><th>Longitud</th><th>Empaque</th><th>Cantidad</th><th>Total tallos</th><th>Destino / Agencia</th><th>Observación</th><th>Acciones</th>' +
+        '</tr></thead><tbody>' + filasHtml + '</tbody></table></div>' +
+        '<p class="subtotal-producto">Subtotal ' + escaparHtml(nombreProducto) + ': ' + subCajas + ' cajas · ' + subTallos + ' tallos</p></div>';
+    });
+    html += '<p class="total-general">Total fijo del día: ' + totalCajas + ' cajas · ' + totalTallos + ' tallos</p>';
+    contenedor.innerHTML = html;
+  }
+
+  function elegirDiaFijas(dia) {
+    diaFijasActivo = dia;
+    renderizarFijas();
+  }
+
+  // ----- Subir a la semana -----
+  async function subirOrdenesFijas() {
+    const semana = etiquetaSemanaFijas();
+    const resultado = document.getElementById('resultado-plantilla');
+    resultado.innerHTML = '';
+    if (!semana) { resultado.innerHTML = '<p class="mensaje-pedido error">Elige la semana.</p>'; return; }
+
+    const pendientes = ordenesFijas.filter(function (f) { return !fijasSubidasSemana[f.id]; }).length;
+    if (pendientes === 0) { resultado.innerHTML = '<p class="mensaje-pedido exito">Todas las órdenes fijas ya están subidas a esa semana.</p>'; return; }
+
+    if (!confirm('Se crearán ' + pendientes + ' pedidos en la semana ' + semana.numero + ' (' + semana.texto + ').\n\nLas órdenes que ya subiste a esa semana no se repiten.\n\n¿Continuar?')) return;
+
+    const boton = document.getElementById('boton-subir-fijas');
+    boton.disabled = true;
+    boton.textContent = 'Subiendo...';
+
+    try {
+      const r = await llamarRpc('subir_ordenes_fijas', { p_lunes: formatoFechaYMD(semana.lunes) });
+      if (!r.ok) {
+        const detalle = r.datos && r.datos.message ? r.datos.message : 'error desconocido';
+        resultado.innerHTML = '<p class="mensaje-pedido error">No se pudo subir: ' + escaparHtml(detalle) + '</p>';
+      } else {
+        const fila = Array.isArray(r.datos) ? r.datos[0] : r.datos;
+        const n = fila && fila.insertados !== undefined ? fila.insertados : pendientes;
+        resultado.innerHTML = '<p class="mensaje-pedido exito">✓ Se subieron ' + n + ' pedidos a la semana ' + semana.numero + ' (' + semana.texto + '). Ya los puedes ver en "Ver Pedidos".</p>';
+        document.getElementById('fecha-reporte').value = formatoFechaYMD(semana.lunes);
+        document.getElementById('reporte-semanal-fecha').value = formatoFechaYMD(semana.lunes);
+        alCambiarSemanaReporte();
+        await cargarReporteSemanal();
+        await cargarUltimosCambios();
+      }
+    } catch (e) {
+      resultado.innerHTML = '<p class="mensaje-pedido error">No se pudo conectar. Intenta de nuevo.</p>';
+    }
+    await cargarOrdenesFijas();
+  }
+
+  // ----- Formulario (nueva / editar) -----
+  function llenarSelectFija(idSelect, lista, textoVacio) {
+    const select = document.getElementById(idSelect);
+    select.innerHTML = '';
+    const vacio = document.createElement('option');
+    vacio.value = '';
+    vacio.textContent = textoVacio;
+    select.appendChild(vacio);
+    lista.forEach(function (item) {
+      const op = document.createElement('option');
+      op.value = item.id;
+      op.textContent = item.nombre;
+      select.appendChild(op);
+    });
+  }
+
+  function alCambiarClienteFija(valorMarcacion) {
+    const clienteId = Number(document.getElementById('of-cliente').value);
+    const lista = (catalogos.marcaciones || []).filter(function (m) { return m.cliente_id === clienteId; });
+    llenarSelectFija('of-marcacion', lista, clienteId ? 'Sin marcación' : 'Elige un cliente primero');
+    if (valorMarcacion) document.getElementById('of-marcacion').value = valorMarcacion;
+  }
+
+  function alCambiarProductoFija(valorVariedad, valorGrado) {
+    const productoId = Number(document.getElementById('of-producto').value);
+    const variedades = (catalogos.variedades || []).filter(function (v) { return v.producto_id === productoId; });
+    const grados = (catalogos.grados || []).filter(function (g) { return g.producto_id === productoId; });
+    llenarSelectFija('of-variedad', variedades, productoId ? 'Selecciona...' : 'Elige un producto primero');
+    llenarSelectFija('of-grado', grados, productoId ? 'Selecciona...' : 'Elige un producto primero');
+    if (valorVariedad) document.getElementById('of-variedad').value = valorVariedad;
+    if (valorGrado) document.getElementById('of-grado').value = valorGrado;
+  }
+
+  function actualizarTotalFija() {
+    const c = Number(document.getElementById('of-cajas').value);
+    const r = Number(document.getElementById('of-ramos').value);
+    const t = Number(document.getElementById('of-tallos').value);
+    document.getElementById('of-total').textContent = (c > 0 && r > 0 && t > 0) ? (c * r * t) + ' tallos' : '—';
+  }
+
+  function abrirFormularioFija(id) {
+    idFijaEditando = id;
+    const fija = id !== null ? ordenesFijas.find(function (f) { return f.id === id; }) : null;
+    if (id !== null && !fija) { alert('No se encontró esa orden fija. Recarga la pantalla.'); return; }
+
+    document.getElementById('titulo-modal-fija').textContent = fija ? 'Editar orden fija' : 'Nueva orden fija';
+    document.getElementById('mensaje-modal-fija').textContent = '';
+    document.getElementById('mensaje-modal-fija').className = 'mensaje-pedido';
+
+    llenarSelectFija('of-cliente', catalogos.clientes || [], 'Selecciona...');
+    llenarSelectFija('of-producto', catalogos.productos || [], 'Selecciona...');
+    llenarSelectFija('of-longitud', catalogos.longitudes_tallo || [], 'Selecciona...');
+    llenarSelectFija('of-caja', catalogos.tipos_caja || [], 'Selecciona...');
+    llenarSelectFija('of-capuchon', catalogos.tipos_capuchon || [], 'Sin capuchón definido');
+    llenarSelectFija('of-agencia', catalogos.agencias_carga || [], 'Sin agencia definida');
+    llenarSelectFija('of-destino', catalogos.destinos || [], 'Sin destino definido');
+
+    // Días: en "nueva" se pueden marcar varios; en "editar" se elige uno solo.
+    const diasSeleccionados = fija ? [fija.dia_semana] : [diaFijasActivo];
+    document.getElementById('of-dias').innerHTML = NOMBRES_DIAS_TABS.map(function (nombre, i) {
+      const dia = i + 1;
+      const tipo = fija ? 'radio' : 'checkbox';
+      return '<label><input type="' + tipo + '" name="of-dia" value="' + dia + '"' + (diasSeleccionados.indexOf(dia) !== -1 ? ' checked' : '') + '> ' + nombre + '</label>';
+    }).join('');
+
+    if (fija) {
+      document.getElementById('of-cliente').value = fija.cliente_id;
+      alCambiarClienteFija(fija.marcacion_id || '');
+      document.getElementById('of-producto').value = fija.producto_id;
+      alCambiarProductoFija(fija.variedad_id, fija.grado_id);
+      document.getElementById('of-longitud').value = fija.longitud_tallo_id;
+      document.getElementById('of-caja').value = fija.tipo_caja_id;
+      document.getElementById('of-capuchon').value = fija.tipo_capuchon_id || '';
+      document.getElementById('of-agencia').value = fija.agencia_carga_id || '';
+      document.getElementById('of-destino').value = fija.destino_id || '';
+      document.getElementById('of-cajas').value = fija.cantidad_cajas;
+      document.getElementById('of-ramos').value = fija.ramos_por_caja;
+      document.getElementById('of-tallos').value = fija.tallos_por_ramo;
+      document.getElementById('of-obs').value = fija.observacion || '';
+    } else {
+      alCambiarClienteFija();
+      alCambiarProductoFija();
+      ['of-cajas', 'of-ramos', 'of-tallos', 'of-obs'].forEach(function (i) { document.getElementById(i).value = ''; });
+    }
+    actualizarTotalFija();
+    document.getElementById('boton-guardar-fija').disabled = false;
+    document.getElementById('boton-guardar-fija').textContent = 'Guardar';
+    document.getElementById('modal-fija').style.display = 'flex';
+  }
+
+  function cerrarFormularioFija() {
+    document.getElementById('modal-fija').style.display = 'none';
+    idFijaEditando = null;
+  }
+
+  async function guardarFija() {
+    const mensaje = document.getElementById('mensaje-modal-fija');
+    mensaje.className = 'mensaje-pedido error';
+
+    const dias = Array.prototype.slice.call(document.querySelectorAll('#of-dias input:checked')).map(function (i) { return Number(i.value); });
+    const base = {
+      cliente_id: Number(document.getElementById('of-cliente').value),
+      producto_id: Number(document.getElementById('of-producto').value),
+      variedad_id: Number(document.getElementById('of-variedad').value),
+      grado_id: Number(document.getElementById('of-grado').value),
+      longitud_tallo_id: Number(document.getElementById('of-longitud').value),
+      tipo_caja_id: Number(document.getElementById('of-caja').value),
+      cantidad_cajas: Number(document.getElementById('of-cajas').value),
+      ramos_por_caja: Number(document.getElementById('of-ramos').value),
+      tallos_por_ramo: Number(document.getElementById('of-tallos').value),
+      marcacion_id: Number(document.getElementById('of-marcacion').value) || null,
+      tipo_capuchon_id: Number(document.getElementById('of-capuchon').value) || null,
+      agencia_carga_id: Number(document.getElementById('of-agencia').value) || null,
+      destino_id: Number(document.getElementById('of-destino').value) || null,
+      observacion: document.getElementById('of-obs').value.trim() || null
+    };
+
+    if (dias.length === 0) { mensaje.textContent = 'Marca al menos un día de la semana.'; return; }
+    if (!base.cliente_id || !base.producto_id || !base.variedad_id || !base.grado_id || !base.longitud_tallo_id || !base.tipo_caja_id ||
+        !(base.cantidad_cajas > 0) || !(base.ramos_por_caja > 0) || !(base.tallos_por_ramo > 0)) {
+      mensaje.textContent = 'Completa todos los campos obligatorios (*).';
+      return;
+    }
+
+    const boton = document.getElementById('boton-guardar-fija');
+    boton.disabled = true;
+    boton.textContent = 'Guardando...';
+
+    const editando = idFijaEditando !== null;
+    let url = SUPABASE_URL + '/rest/v1/ordenes_fijas';
+    let metodo = 'POST';
+    let cuerpo;
+    if (editando) {
+      url += '?id=eq.' + idFijaEditando;
+      metodo = 'PATCH';
+      cuerpo = Object.assign({ dia_semana: dias[0] }, base);
+    } else {
+      cuerpo = dias.map(function (d) { return Object.assign({ dia_semana: d }, base); });
+    }
+
+    try {
+      const respuesta = await fetch(url, {
+        method: metodo,
+        headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + sesion.access_token },
+        body: JSON.stringify(cuerpo)
+      });
+      if (!respuesta.ok) {
+        let detalle = 'error desconocido';
+        try { const d = await respuesta.json(); if (d && d.message) detalle = d.message; } catch (e) { /* sin detalle */ }
+        mensaje.textContent = 'No se pudo guardar: ' + detalle;
+        boton.disabled = false;
+        boton.textContent = 'Guardar';
+        return;
+      }
+      if (!editando) diaFijasActivo = dias[0];
+      cerrarFormularioFija();
+      await cargarOrdenesFijas();
+    } catch (e) {
+      mensaje.textContent = 'No se pudo conectar. Intenta de nuevo.';
+      boton.disabled = false;
+      boton.textContent = 'Guardar';
+    }
+  }
+
+  async function eliminarFija(id) {
+    const fija = ordenesFijas.find(function (f) { return f.id === id; });
+    if (!fija) return;
+    const descripcion = (nombreDeCatalogo('clientes', fija.cliente_id) || '') + ' · ' + (nombreDeCatalogo('variedades', fija.variedad_id) || '') + ' ' + (nombreDeCatalogo('grados', fija.grado_id) || '');
+    if (!confirm('¿Eliminar esta orden fija?\n\n' + descripcion + '\n\nLos pedidos que ya subiste a alguna semana NO se borran.')) return;
+
+    const resultado = document.getElementById('resultado-plantilla');
+    try {
+      const respuesta = await fetch(SUPABASE_URL + '/rest/v1/ordenes_fijas?id=eq.' + id, {
+        method: 'DELETE',
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + sesion.access_token }
+      });
+      if (!respuesta.ok) {
+        resultado.innerHTML = '<p class="mensaje-pedido error">No se pudo eliminar. Intenta de nuevo.</p>';
+        return;
+      }
+      resultado.innerHTML = '';
+      await cargarOrdenesFijas();
+    } catch (e) {
+      resultado.innerHTML = '<p class="mensaje-pedido error">No se pudo conectar. Intenta de nuevo.</p>';
+    }
+  }
+
+  // ----- Importar desde CSV (primera carga) -----
+  async function importarFijasCSV() {
+    const archivoInput = document.getElementById('archivo-plantilla');
     const resultado = document.getElementById('resultado-plantilla');
     resultado.innerHTML = '';
 
@@ -2658,192 +2868,127 @@
       resultado.innerHTML = '<p class="mensaje-pedido error">Elige un archivo CSV primero.</p>';
       return;
     }
-    if (!fecha) {
-      resultado.innerHTML = '<p class="mensaje-pedido error">Elige la fecha para estos pedidos.</p>';
-      return;
-    }
+    const filas = analizarCSV(await archivoInput.files[0].text());
+    if (filas.length < 2) { resultado.innerHTML = '<p class="mensaje-pedido error">El archivo está vacío o no tiene filas de datos.</p>'; return; }
 
-    const archivo = archivoInput.files[0];
-    const texto = await archivo.text();
-    const filas = analizarCSV(texto);
-
-    if (filas.length < 2) {
-      resultado.innerHTML = '<p class="mensaje-pedido error">El archivo está vacío o no tiene filas de datos.</p>';
-      return;
-    }
-
-    const encabezado = filas[0];
     const mapaColumnas = {};
-    encabezado.forEach(function (texto, indice) {
+    filas[0].forEach(function (texto, indice) {
       const clave = normalizarEncabezado(texto);
       if (clave) mapaColumnas[clave] = indice;
     });
-
-    const camposRequeridos = ['dia', 'cliente', 'producto', 'variedad', 'grado', 'longitud', 'tipo_caja', 'cantidad_cajas', 'ramos_por_caja', 'tallos_por_ramo'];
-    const faltantes = camposRequeridos.filter(function (campo) { return !(campo in mapaColumnas); });
+    const requeridos = ['dia', 'cliente', 'producto', 'variedad', 'grado', 'longitud', 'tipo_caja', 'cantidad_cajas', 'ramos_por_caja', 'tallos_por_ramo'];
+    const faltantes = requeridos.filter(function (c) { return !(c in mapaColumnas); });
     if (faltantes.length > 0) {
       resultado.innerHTML = '<p class="mensaje-pedido error">Al archivo le faltan estas columnas: ' + faltantes.join(', ') + '.</p>';
       return;
     }
 
-    const lunesBase = lunesDeLaSemana(fecha);
-
     const errores = [];
-    const pedidosNuevos = [];
+    const nuevas = [];
 
     for (let i = 1; i < filas.length; i++) {
       const fila = filas[i];
       if (fila.every(function (c) { return c.trim() === ''; })) continue;
-
-      const numeroFila = i + 1;
+      const n = i + 1;
       const obtener = function (campo) { return mapaColumnas[campo] !== undefined ? (fila[mapaColumnas[campo]] || '').trim() : ''; };
+      const falla = function (msg) { errores.push('Fila ' + n + ': ' + msg); };
 
       const textoDias = obtener('dia');
-      const nombreCliente = obtener('cliente');
-      const nombreProducto = obtener('producto');
-      const nombreVariedad = obtener('variedad');
-      const nombreGrado = obtener('grado');
-      const nombreLongitud = obtener('longitud');
-      const nombreCaja = obtener('tipo_caja');
-      const nombreMarcacion = obtener('marcacion');
-      const nombreCapuchon = obtener('tipo_capuchon');
-      const nombreDestino = obtener('destino');
-      const nombreAgencia = obtener('agencia_carga');
-      const observacion = obtener('observacion');
+      if (!textoDias) { falla('falta indicar el día (o días) de la semana.'); continue; }
+      const dias = [];
+      let diaMalo = null;
+      textoDias.split('+').map(function (d) { return d.trim(); }).filter(Boolean).forEach(function (d) {
+        const off = obtenerOffsetDia(d);
+        if (off === null) diaMalo = d; else dias.push(off + 1);
+      });
+      if (diaMalo) { falla('"' + diaMalo + '" no es un día válido.'); continue; }
 
-      if (!textoDias) { errores.push('Fila ' + numeroFila + ': falta indicar el día (o días) de la semana.'); continue; }
-      const nombresDias = textoDias.split('+').map(function (d) { return d.trim(); }).filter(function (d) { return d !== ''; });
-      const offsetsDias = [];
-      let diaInvalido = null;
-      for (let j = 0; j < nombresDias.length; j++) {
-        const offset = obtenerOffsetDia(nombresDias[j]);
-        if (offset === null) { diaInvalido = nombresDias[j]; break; }
-        offsetsDias.push(offset);
-      }
-      if (diaInvalido) {
-        errores.push('Fila ' + numeroFila + ': "' + diaInvalido + '" no es un día válido (usa Lunes, Martes, Miércoles, Jueves, Viernes, Sábado o Domingo).');
-        continue;
-      }
-
-      const cliente = buscarPorNombre(catalogos.clientes, nombreCliente);
-      if (!cliente) { errores.push('Fila ' + numeroFila + ': no existe el cliente "' + nombreCliente + '".'); continue; }
-
-      const producto = buscarPorNombre(catalogos.productos, nombreProducto);
-      if (!producto) { errores.push('Fila ' + numeroFila + ': no existe el producto "' + nombreProducto + '".'); continue; }
-
-      const variedad = catalogos.variedades.find(function (v) { return v.producto_id === producto.id && v.nombre.trim().toLowerCase() === nombreVariedad.toLowerCase(); });
-      if (!variedad) { errores.push('Fila ' + numeroFila + ': la variedad "' + nombreVariedad + '" no existe para el producto "' + nombreProducto + '".'); continue; }
-
-      const grado = catalogos.grados.find(function (g) { return g.producto_id === producto.id && g.nombre.trim().toLowerCase() === nombreGrado.toLowerCase(); });
-      if (!grado) { errores.push('Fila ' + numeroFila + ': el grado "' + nombreGrado + '" no existe para el producto "' + nombreProducto + '".'); continue; }
-
-      const longitud = buscarPorNombre(catalogos.longitudes_tallo, nombreLongitud);
-      if (!longitud) { errores.push('Fila ' + numeroFila + ': no existe la longitud "' + nombreLongitud + '".'); continue; }
-
-      const caja = buscarPorNombre(catalogos.tipos_caja, nombreCaja);
-      if (!caja) { errores.push('Fila ' + numeroFila + ': no existe el tipo de caja "' + nombreCaja + '".'); continue; }
+      const cliente = buscarPorNombre(catalogos.clientes, obtener('cliente'));
+      if (!cliente) { falla('no existe el cliente "' + obtener('cliente') + '".'); continue; }
+      const producto = buscarPorNombre(catalogos.productos, obtener('producto'));
+      if (!producto) { falla('no existe el producto "' + obtener('producto') + '".'); continue; }
+      const variedad = catalogos.variedades.find(function (v) { return v.producto_id === producto.id && v.nombre.trim().toLowerCase() === obtener('variedad').toLowerCase(); });
+      if (!variedad) { falla('la variedad "' + obtener('variedad') + '" no existe para "' + producto.nombre + '".'); continue; }
+      const grado = catalogos.grados.find(function (g) { return g.producto_id === producto.id && g.nombre.trim().toLowerCase() === obtener('grado').toLowerCase(); });
+      if (!grado) { falla('el grado "' + obtener('grado') + '" no existe para "' + producto.nombre + '".'); continue; }
+      const longitud = buscarPorNombre(catalogos.longitudes_tallo, obtener('longitud'));
+      if (!longitud) { falla('no existe la longitud "' + obtener('longitud') + '".'); continue; }
+      const caja = buscarPorNombre(catalogos.tipos_caja, obtener('tipo_caja'));
+      if (!caja) { falla('no existe el tipo de caja "' + obtener('tipo_caja') + '".'); continue; }
 
       let marcacion = null;
-      if (nombreMarcacion) {
-        marcacion = catalogos.marcaciones.find(function (m) { return m.cliente_id === cliente.id && m.nombre.trim().toLowerCase() === nombreMarcacion.toLowerCase(); });
-        if (!marcacion) { errores.push('Fila ' + numeroFila + ': la marcación "' + nombreMarcacion + '" no existe para el cliente "' + nombreCliente + '".'); continue; }
+      if (obtener('marcacion')) {
+        marcacion = catalogos.marcaciones.find(function (m) { return m.cliente_id === cliente.id && m.nombre.trim().toLowerCase() === obtener('marcacion').toLowerCase(); });
+        if (!marcacion) { falla('la marcación "' + obtener('marcacion') + '" no existe para "' + cliente.nombre + '".'); continue; }
       }
-
       let capuchon = null;
-      if (nombreCapuchon) {
-        capuchon = buscarPorNombre(catalogos.tipos_capuchon, nombreCapuchon);
-        if (!capuchon) { errores.push('Fila ' + numeroFila + ': no existe el tipo de capuchón "' + nombreCapuchon + '".'); continue; }
+      if (obtener('tipo_capuchon')) {
+        capuchon = buscarPorNombre(catalogos.tipos_capuchon, obtener('tipo_capuchon'));
+        if (!capuchon) { falla('no existe el capuchón "' + obtener('tipo_capuchon') + '".'); continue; }
       }
-
       let destino = null;
-      if (nombreDestino) {
-        destino = buscarPorNombre(catalogos.destinos, nombreDestino);
-        if (!destino) { errores.push('Fila ' + numeroFila + ': no existe el destino "' + nombreDestino + '".'); continue; }
+      if (obtener('destino')) {
+        destino = buscarPorNombre(catalogos.destinos, obtener('destino'));
+        if (!destino) { falla('no existe el destino "' + obtener('destino') + '".'); continue; }
       }
-
       let agencia = null;
-      if (nombreAgencia) {
-        agencia = buscarPorNombre(catalogos.agencias_carga, nombreAgencia);
-        if (!agencia) { errores.push('Fila ' + numeroFila + ': no existe la agencia de carga "' + nombreAgencia + '".'); continue; }
+      if (obtener('agencia_carga')) {
+        agencia = buscarPorNombre(catalogos.agencias_carga, obtener('agencia_carga'));
+        if (!agencia) { falla('no existe la agencia "' + obtener('agencia_carga') + '".'); continue; }
       }
 
       const cajas = Number(obtener('cantidad_cajas'));
       const ramos = Number(obtener('ramos_por_caja'));
       const tallos = Number(obtener('tallos_por_ramo'));
-      if (!cajas || cajas <= 0) { errores.push('Fila ' + numeroFila + ': "Cantidad Cajas" debe ser un número mayor a 0.'); continue; }
-      if (!ramos || ramos <= 0) { errores.push('Fila ' + numeroFila + ': "Ramos por Caja" debe ser un número mayor a 0.'); continue; }
-      if (!tallos || tallos <= 0) { errores.push('Fila ' + numeroFila + ': "Tallos por Ramo" debe ser un número mayor a 0.'); continue; }
+      if (!(cajas > 0) || !(ramos > 0) || !(tallos > 0)) { falla('cajas, ramos y tallos deben ser números mayores a 0.'); continue; }
 
-      const pedidoBase = {
-        cliente_id: cliente.id,
-        producto_id: producto.id,
-        variedad_id: variedad.id,
-        grado_id: grado.id,
-        longitud_tallo_id: longitud.id,
-        tipo_caja_id: caja.id,
-        cantidad_cajas: cajas,
-        ramos_por_caja: ramos,
-        tallos_por_ramo: tallos,
-        observacion: observacion || null
-      };
-      if (marcacion) pedidoBase.marcacion_id = marcacion.id;
-      if (capuchon) pedidoBase.tipo_capuchon_id = capuchon.id;
-      if (destino) pedidoBase.destino_id = destino.id;
-      if (agencia) pedidoBase.agencia_carga_id = agencia.id;
+      let observacion = obtener('observacion') || null;
+      // La fila de ejemplo de la plantilla antigua traía este texto; no es una observación real.
+      if (observacion && observacion.toLowerCase().indexOf('pedido fijo semanal (fila de ejemplo') === 0) observacion = null;
 
-      offsetsDias.forEach(function (offset) {
-        const pedido = Object.assign({}, pedidoBase);
-        pedido.fecha_venta = fechaParaOffset(lunesBase, offset);
-        pedidosNuevos.push(pedido);
+      dias.forEach(function (d) {
+        nuevas.push({
+          dia_semana: d, cliente_id: cliente.id, marcacion_id: marcacion ? marcacion.id : null,
+          producto_id: producto.id, variedad_id: variedad.id, grado_id: grado.id,
+          longitud_tallo_id: longitud.id, tipo_caja_id: caja.id, tipo_capuchon_id: capuchon ? capuchon.id : null,
+          cantidad_cajas: cajas, ramos_por_caja: ramos, tallos_por_ramo: tallos,
+          agencia_carga_id: agencia ? agencia.id : null, destino_id: destino ? destino.id : null, observacion: observacion
+        });
       });
     }
 
     if (errores.length > 0) {
-      resultado.innerHTML = '<p class="mensaje-pedido error">Se encontraron ' + errores.length + ' error(es). No se cargó nada todavía — corrige el archivo y vuelve a intentar:</p>' +
-        '<ul class="lista-errores-plantilla">' + errores.map(function (e) { return '<li>' + e + '</li>'; }).join('') + '</ul>';
+      resultado.innerHTML = '<p class="mensaje-pedido error">Se encontraron ' + errores.length + ' error(es). No se importó nada — corrige el archivo y vuelve a intentar:</p>' +
+        '<ul class="lista-errores-plantilla">' + errores.map(function (e) { return '<li>' + escaparHtml(e) + '</li>'; }).join('') + '</ul>';
       return;
     }
-    if (pedidosNuevos.length === 0) {
-      resultado.innerHTML = '<p class="mensaje-pedido error">El archivo no tiene filas de datos para cargar.</p>';
-      return;
-    }
+    if (nuevas.length === 0) { resultado.innerHTML = '<p class="mensaje-pedido error">El archivo no tiene filas de datos.</p>'; return; }
 
-    const botonCargar = document.getElementById('boton-cargar-plantilla');
-    botonCargar.disabled = true;
-    botonCargar.textContent = 'Cargando...';
+    if (ordenesFijas.length > 0 && !confirm('Ya tienes ' + ordenesFijas.length + ' órdenes fijas guardadas. Importar este archivo AGREGARÁ ' + nuevas.length + ' más (no reemplaza las existentes).\n\n¿Continuar?')) return;
 
+    const boton = document.getElementById('boton-importar-fijas');
+    boton.disabled = true;
+    boton.textContent = 'Importando...';
     try {
-      const respuesta = await fetch(SUPABASE_URL + '/rest/v1/pedidos', {
+      const respuesta = await fetch(SUPABASE_URL + '/rest/v1/ordenes_fijas', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': SUPABASE_KEY,
-          'Authorization': 'Bearer ' + sesion.access_token,
-          'Prefer': 'return=representation'
-        },
-        body: JSON.stringify(pedidosNuevos)
+        headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + sesion.access_token },
+        body: JSON.stringify(nuevas)
       });
-      const datos = await respuesta.json();
-
       if (!respuesta.ok) {
-        resultado.innerHTML = '<p class="mensaje-pedido error">No se pudo cargar: ' + (datos.message || 'error desconocido') + '</p>';
+        let detalle = 'error desconocido';
+        try { const d = await respuesta.json(); if (d && d.message) detalle = d.message; } catch (e) { /* sin detalle */ }
+        resultado.innerHTML = '<p class="mensaje-pedido error">No se pudo importar: ' + escaparHtml(detalle) + '</p>';
       } else {
-        const domingoBase = fechaParaOffset(lunesBase, 6);
-        const lunesTexto = formatoFechaYMD(lunesBase);
-        resultado.innerHTML = '<p class="mensaje-pedido exito">✓ Se cargaron ' + datos.length + ' pedidos para la semana del ' + lunesTexto + ' al ' + domingoBase + '.</p>';
+        resultado.innerHTML = '<p class="mensaje-pedido exito">✓ Se importaron ' + nuevas.length + ' órdenes fijas.</p>';
         archivoInput.value = '';
-        document.getElementById('fecha-reporte').value = lunesTexto;
-        document.getElementById('reporte-semanal-fecha').value = lunesTexto;
-        alCambiarSemanaReporte();
-        await cargarReporteSemanal();
-        await cargarUltimosCambios();
+        await cargarOrdenesFijas();
       }
-    } catch (error) {
+    } catch (e) {
       resultado.innerHTML = '<p class="mensaje-pedido error">No se pudo conectar. Intenta de nuevo.</p>';
     }
-
-    botonCargar.disabled = false;
-    botonCargar.textContent = 'Cargar archivo';
+    boton.disabled = false;
+    boton.textContent = 'Importar al módulo';
   }
 
   // ---------- MOSTRAR APP / CERRAR SESIÓN ----------
@@ -2935,6 +3080,13 @@
     document.getElementById('boton-guardar-pedido').textContent = 'Guardar pedido';
     document.getElementById('resultado-plantilla').innerHTML = '';
     document.getElementById('archivo-plantilla').value = '';
+    ordenesFijas = [];
+    fijasSubidasSemana = {};
+    diaFijasActivo = 1;
+    document.getElementById('fecha-plantilla').removeAttribute('data-tocado');
+    document.getElementById('contenedor-fijas').innerHTML = '';
+    document.getElementById('pestanas-dias-fijas').innerHTML = '';
+    document.getElementById('modal-fija').style.display = 'none';
     document.getElementById('formulario-pedido').reset();
     document.getElementById('mensaje-pedido').textContent = '';
     document.getElementById('pantalla-login').style.display = 'flex';
