@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Masflowers · Pedidos</title>
+<title>Pedidos - Masflowers</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22%3E%3Crect width=%2264%22 height=%2264%22 rx=%2214%22 fill=%22%23111111%22/%3E%3Ctext x=%2232%22 y=%2247%22 text-anchor=%22middle%22 font-family=%22Georgia, 'Times New Roman', serif%22 font-weight=%22700%22 font-size=%2242%22 fill=%22%23FFFFFF%22%3EP%3C/text%3E%3C/svg%3E">
 <style>
   :root {
     --verde-oscuro: #1F4D3A;
@@ -386,6 +387,11 @@
   .botones-modal-fija { display: flex; gap: 10px; }
   .botones-modal-fija button { padding: 10px 18px; font-size: 14px; }
   .etiqueta-subida { display: inline-block; margin-left: 6px; font-size: 11px; font-weight: 600; color: var(--verde-oscuro); background: var(--verde-suave); border-radius: 999px; padding: 1px 8px; }
+  .botones-seleccion-fijas { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 14px; }
+  .botones-seleccion-fijas button { padding: 7px 12px; border-radius: 8px; border: 1px solid var(--gris-borde); background: #fff; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 600; }
+  .botones-seleccion-fijas button:hover { border-color: var(--verde-oscuro); color: var(--verde-oscuro); }
+  .botones-seleccion-fijas .nota-actualizacion { margin: 0 0 0 6px; }
+  .tabla-pedidos tr.fila-omitida td:not(.celda-listo) { opacity: 0.45; }
   .importar-fijas { margin-top: 28px; border-top: 1px solid var(--gris-borde); padding-top: 14px; }
   .importar-fijas summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--gris-texto); }
   .importar-fijas .controles-plantilla { margin-top: 10px; }
@@ -648,6 +654,11 @@
           </div>
         </div>
         <p id="estado-semana-fijas" class="avance-dia"></p>
+        <div class="botones-seleccion-fijas">
+          <button type="button" onclick="marcarTodasFijas(true)">Marcar todas</button>
+          <button type="button" onclick="marcarTodasFijas(false)">Desmarcar todas</button>
+          <span class="nota-actualizacion">Desmarca las órdenes que NO quieres enviar esta semana.</span>
+        </div>
 
         <div id="pestanas-dias-fijas" class="pestanas-dias"></div>
         <div id="contenedor-fijas"></div>
@@ -2492,6 +2503,7 @@
   let diaFijasActivo = 1;        // 1 = Lunes ... 7 = Domingo
   let idFijaEditando = null;
   let tablaFijasDisponible = true;
+  let fijasExcluidas = {};       // { id_orden_fija: true } = desmarcadas para la subida de esta semana (por defecto, ninguna)
 
   function nombreDeCatalogo(lista, id) {
     if (id === null || id === undefined) return null;
@@ -2529,6 +2541,7 @@
   }
 
   function alCambiarSemanaFijas() {
+    fijasExcluidas = {};   // cada semana empieza con todas marcadas
     document.getElementById('fecha-plantilla').setAttribute('data-tocado', '1');
     cargarOrdenesFijas();
   }
@@ -2572,6 +2585,10 @@
     fijasSubidasSemana = {};
     subidas.forEach(function (s) { fijasSubidasSemana[s.orden_fija_id] = true; });
 
+    const existentes = {};
+    ordenesFijas.forEach(function (f) { existentes[f.id] = true; });
+    Object.keys(fijasExcluidas).forEach(function (k) { if (!existentes[k]) delete fijasExcluidas[k]; });
+
     renderizarFijas();
   }
 
@@ -2584,13 +2601,18 @@
       boton.textContent = 'Subir órdenes fijas a la semana ' + semana.numero + ' (' + semana.texto + ')';
       const total = ordenesFijas.length;
       const subidas = ordenesFijas.filter(function (f) { return fijasSubidasSemana[f.id]; }).length;
-      boton.disabled = total === 0 || subidas === total;
+      const pendientes = total - subidas;
+      const aSubir = idsFijasASubir().length;
+      const omitidas = pendientes - aSubir;
+      boton.disabled = aSubir === 0;
       if (total === 0) {
         estado.textContent = 'Todavía no tienes órdenes fijas. Agrega una con "+ Nueva orden fija" o importa tu archivo CSV.';
-      } else if (subidas === total) {
+      } else if (pendientes === 0) {
         estado.textContent = 'Semana ' + semana.numero + ': las ' + total + ' órdenes fijas ya están subidas.';
       } else {
-        estado.textContent = 'Semana ' + semana.numero + ': ' + subidas + ' de ' + total + ' órdenes fijas ya subidas; faltan ' + (total - subidas) + '.';
+        estado.textContent = 'Semana ' + semana.numero + ': se subirán ' + aSubir + ' de ' + pendientes + ' órdenes pendientes' +
+          (omitidas > 0 ? ' (' + omitidas + ' desmarcada' + (omitidas === 1 ? '' : 's') + ' esta semana)' : '') +
+          (subidas > 0 ? '. Ya subidas: ' + subidas : '') + '.';
       }
     }
 
@@ -2632,9 +2654,14 @@
         const capuchon = nombreDeCatalogo('tipos_capuchon', f.tipo_capuchon_id);
         const destino = nombreDeCatalogo('destinos', f.destino_id) || 'Sin definir';
         const agencia = nombreDeCatalogo('agencias_carga', f.agencia_carga_id);
-        const subida = fijasSubidasSemana[f.id] ? '<span class="etiqueta-subida">subida</span>' : '';
+        const yaSubida = fijasSubidasSemana[f.id] === true;
+        const incluida = !fijasExcluidas[f.id];
+        const subida = yaSubida ? '<span class="etiqueta-subida">subida</span>' : '';
+        const casilla = '<td class="celda-listo"><input type="checkbox" ' +
+          (yaSubida ? 'checked disabled title="Ya subida a esta semana"' : (incluida ? 'checked' : '')) +
+          ' onchange="alMarcarFijaSemana(' + f.id + ', this.checked)" aria-label="Incluir en la subida de esta semana"></td>';
         const obs = f.observacion ? '<span title="' + escaparHtml(f.observacion) + '">' + escaparHtml(truncarTexto(f.observacion, 28)) + '</span>' : '';
-        return '<tr>' +
+        return '<tr' + (!yaSubida && !incluida ? ' class="fila-omitida"' : '') + '>' + casilla +
           '<td>' + escaparHtml((nombreDeCatalogo('clientes', f.cliente_id) || '—') + (marcacion ? ' (' + marcacion + ')' : '')) + subida + '</td>' +
           '<td>' + escaparHtml(nombreDeCatalogo('variedades', f.variedad_id) || '—') + '</td>' +
           '<td>' + escaparHtml(nombreDeCatalogo('grados', f.grado_id) || '—') + '</td>' +
@@ -2653,12 +2680,29 @@
       totalTallos += subTallos;
       html += '<div class="grupo-producto"><h3>' + escaparHtml(nombreProducto) + ' <span class="conteo-grupo">(' + filas.length + ' orden' + (filas.length === 1 ? '' : 'es') + ')</span></h3>' +
         '<div class="tabla-scroll"><table class="tabla-pedidos"><thead><tr>' +
-        '<th>Cliente</th><th>Variedad</th><th>Grado</th><th>Longitud</th><th>Empaque</th><th>Cantidad</th><th>Total tallos</th><th>Destino / Agencia</th><th>Observación</th><th>Acciones</th>' +
+        '<th class="celda-listo" title="Incluir en la subida de esta semana">Subir</th><th>Cliente</th><th>Variedad</th><th>Grado</th><th>Longitud</th><th>Empaque</th><th>Cantidad</th><th>Total tallos</th><th>Destino / Agencia</th><th>Observación</th><th>Acciones</th>' +
         '</tr></thead><tbody>' + filasHtml + '</tbody></table></div>' +
         '<p class="subtotal-producto">Subtotal ' + escaparHtml(nombreProducto) + ': ' + subCajas + ' cajas · ' + subTallos + ' tallos</p></div>';
     });
     html += '<p class="total-general">Total fijo del día: ' + totalCajas + ' cajas · ' + totalTallos + ' tallos</p>';
     asignarHtmlConservandoScroll(contenedor, html);
+  }
+
+  function idsFijasASubir() {
+    return ordenesFijas
+      .filter(function (f) { return !fijasSubidasSemana[f.id] && !fijasExcluidas[f.id]; })
+      .map(function (f) { return f.id; });
+  }
+
+  function alMarcarFijaSemana(id, marcada) {
+    if (marcada) delete fijasExcluidas[id]; else fijasExcluidas[id] = true;
+    renderizarFijas();
+  }
+
+  function marcarTodasFijas(marcar) {
+    fijasExcluidas = {};
+    if (!marcar) ordenesFijas.forEach(function (f) { fijasExcluidas[f.id] = true; });
+    renderizarFijas();
   }
 
   function elegirDiaFijas(dia) {
@@ -2673,23 +2717,28 @@
     resultado.innerHTML = '';
     if (!semana) { resultado.innerHTML = '<p class="mensaje-pedido error">Elige la semana.</p>'; return; }
 
-    const pendientes = ordenesFijas.filter(function (f) { return !fijasSubidasSemana[f.id]; }).length;
-    if (pendientes === 0) { resultado.innerHTML = '<p class="mensaje-pedido exito">Todas las órdenes fijas ya están subidas a esa semana.</p>'; return; }
+    const ids = idsFijasASubir();
+    const pendientes = ids.length;
+    if (pendientes === 0) { resultado.innerHTML = '<p class="mensaje-pedido error">No hay órdenes marcadas para subir a esa semana.</p>'; return; }
 
-    if (!confirm('Se crearán ' + pendientes + ' pedidos en la semana ' + semana.numero + ' (' + semana.texto + ').\n\nLas órdenes que ya subiste a esa semana no se repiten.\n\n¿Continuar?')) return;
+    const omitidas = ordenesFijas.filter(function (f) { return !fijasSubidasSemana[f.id] && fijasExcluidas[f.id]; }).length;
+    if (!confirm('Se crearán ' + pendientes + ' pedidos en la semana ' + semana.numero + ' (' + semana.texto + ').' +
+        (omitidas > 0 ? '\n\nQuedan fuera ' + omitidas + ' órdenes desmarcadas esta semana.' : '') +
+        '\n\nLas órdenes que ya subiste a esa semana no se repiten.\n\n¿Continuar?')) return;
 
     const boton = document.getElementById('boton-subir-fijas');
     boton.disabled = true;
     boton.textContent = 'Subiendo...';
 
     try {
-      const r = await llamarRpc('subir_ordenes_fijas', { p_lunes: formatoFechaYMD(semana.lunes) });
+      const r = await llamarRpc('subir_ordenes_fijas', { p_lunes: formatoFechaYMD(semana.lunes), p_ids: ids });
       if (!r.ok) {
         const detalle = r.datos && r.datos.message ? r.datos.message : 'error desconocido';
         resultado.innerHTML = '<p class="mensaje-pedido error">No se pudo subir: ' + escaparHtml(detalle) + '</p>';
       } else {
         const fila = Array.isArray(r.datos) ? r.datos[0] : r.datos;
         const n = fila && fila.insertados !== undefined ? fila.insertados : pendientes;
+        fijasExcluidas = {};
         resultado.innerHTML = '<p class="mensaje-pedido exito">✓ Se subieron ' + n + ' pedidos a la semana ' + semana.numero + ' (' + semana.texto + '). Ya los puedes ver en "Ver Pedidos".</p>';
         document.getElementById('fecha-reporte').value = formatoFechaYMD(semana.lunes);
         document.getElementById('reporte-semanal-fecha').value = formatoFechaYMD(semana.lunes);
@@ -3195,6 +3244,7 @@
     document.getElementById('archivo-plantilla').value = '';
     ordenesFijas = [];
     fijasSubidasSemana = {};
+    fijasExcluidas = {};
     diaFijasActivo = 1;
     document.getElementById('fecha-plantilla').removeAttribute('data-tocado');
     document.getElementById('contenedor-fijas').innerHTML = '';
