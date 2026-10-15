@@ -402,6 +402,9 @@
     .tabla-pedidos td.celda-listo, .tabla-pedidos td.celda-acciones { white-space: nowrap; }
   }
 
+  .indicador-vivo { display: inline-block; margin-left: 10px; font-size: 12px; font-weight: 600; color: var(--gris-texto); }
+  .indicador-vivo.vivo { color: var(--verde-oscuro); }
+
   /* ===== Reporte semanal: selector de unidad ===== */
   .selector-unidad { margin: 0; }
   .selector-unidad button { padding: 10px 18px; font-size: 14px; }
@@ -498,6 +501,7 @@
     <div>
       <span id="saludo"></span>
       <span id="chip-rol" class="chip"></span>
+      <span id="indicador-vivo" class="indicador-vivo"></span>
     </div>
     <div class="acciones-barra">
       <button type="button" id="boton-admin-usuarios" onclick="abrirAdministrarUsuarios()" style="display:none;">Administrar usuarios</button>
@@ -917,6 +921,7 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script>
   // ======= CONFIGURACIÓN DE CONEXIÓN A SUPABASE =======
   const SUPABASE_URL = 'https://jfmzqszcnwwluwivjvvr.supabase.co';
@@ -1097,6 +1102,7 @@
         return;
       }
       guardarSesionEnStorage();
+      if (clienteTiempoReal) { try { clienteTiempoReal.realtime.setAuth(sesion.access_token); } catch (e) { /* se reintenta en la próxima renovación */ } }
     }
   }
 
@@ -1239,6 +1245,7 @@
       alert('No se pudo guardar el cambio. Revisa tu internet e intenta de nuevo.');
     } finally {
       guardandoListo--;
+      setTimeout(cargarReporteDia, 500);
     }
   }
 
@@ -3016,6 +3023,89 @@
     boton.textContent = 'Importar al módulo';
   }
 
+  // ---------- ACTUALIZACIÓN EN TIEMPO REAL ----------
+  // Supabase Realtime avisa al instante cuando alguien crea, edita, borra o marca un pedido.
+  // Si la conexión en vivo no está disponible, la app vuelve sola a refrescar cada 6 segundos.
+  // Con la conexión en vivo activa, además se refresca cada 30 s como red de seguridad.
+  let clienteTiempoReal = null;
+  let tiempoRealActivo = false;
+  let temporizadorEvento = null;
+
+  function refrescarTodo() {
+    if (!sesion) return;
+    cargarReporteDia();
+    cargarReporteSemanal();
+    cargarUltimosCambios();
+    if (sesion.rol === 'vendedor' && document.getElementById('seccion-plantilla').style.display === 'block') {
+      cargarOrdenesFijas();
+    }
+  }
+
+  function refrescoPorEvento() {
+    clearTimeout(temporizadorEvento);
+    temporizadorEvento = setTimeout(refrescarTodo, 300);   // junta varios cambios seguidos en uno solo
+  }
+
+  function actualizarIndicadorVivo() {
+    const el = document.getElementById('indicador-vivo');
+    if (!el) return;
+    el.textContent = tiempoRealActivo ? '● En vivo' : '○ Actualiza cada 6 s';
+    el.className = 'indicador-vivo' + (tiempoRealActivo ? ' vivo' : '');
+    el.title = tiempoRealActivo ? 'Los cambios de otras personas aparecen al instante.' : 'Sin conexión en vivo: la pantalla se actualiza cada 6 segundos.';
+  }
+
+  function programarRefresco() {
+    if (intervaloPedidos) clearInterval(intervaloPedidos);
+    intervaloPedidos = setInterval(refrescarTodo, tiempoRealActivo ? 30000 : 6000);
+    actualizarIndicadorVivo();
+  }
+
+  function detenerTiempoReal() {
+    clearTimeout(temporizadorEvento);
+    if (clienteTiempoReal) {
+      try { clienteTiempoReal.removeAllChannels(); } catch (e) { /* nada que hacer */ }
+      clienteTiempoReal = null;
+    }
+    tiempoRealActivo = false;
+  }
+
+  function iniciarTiempoReal() {
+    detenerTiempoReal();
+    if (typeof supabase === 'undefined' || !supabase.createClient) { programarRefresco(); return; }
+
+    try {
+      clienteTiempoReal = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+        auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
+      });
+      clienteTiempoReal.realtime.setAuth(sesion.access_token);
+
+      clienteTiempoReal.channel('masflowers-pedidos')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos' }, refrescoPorEvento)
+        .subscribe(function (estado) {
+          const vivo = estado === 'SUBSCRIBED';
+          if (vivo !== tiempoRealActivo) {
+            tiempoRealActivo = vivo;
+            programarRefresco();
+            if (vivo) refrescarTodo();   // se pone al día por si algo cambió mientras no había conexión
+          }
+        });
+
+      // Las órdenes fijas solo las ven los vendedores; va en un canal aparte para que, si fallara, no afecte a los pedidos.
+      if (sesion.rol === 'vendedor') {
+        clienteTiempoReal.channel('masflowers-fijas')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'ordenes_fijas' }, refrescoPorEvento)
+          .subscribe();
+      }
+    } catch (e) {
+      tiempoRealActivo = false;
+    }
+    programarRefresco();
+  }
+
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden && sesion) refrescarTodo();   // al volver a la pestaña se actualiza de inmediato
+  });
+
   // ---------- MOSTRAR APP / CERRAR SESIÓN ----------
   async function mostrarApp() {
     document.getElementById('pantalla-login').style.display = 'none';
@@ -3058,12 +3148,7 @@
       document.getElementById('boton-volver-cambios').style.display = 'none';
     }
 
-    if (intervaloPedidos) clearInterval(intervaloPedidos);
-    intervaloPedidos = setInterval(function () {
-      cargarReporteDia();
-      cargarReporteSemanal();
-      cargarUltimosCambios();
-    }, 6000);
+    iniciarTiempoReal();
 
     if (intervaloRenovacionSesion) clearInterval(intervaloRenovacionSesion);
     intervaloRenovacionSesion = setInterval(renovarTokenPeriodicamente, 45 * 60 * 1000);
@@ -3077,6 +3162,8 @@
     fechaReporteActual = null;
     borrarSesionDeStorage();
     if (intervaloPedidos) { clearInterval(intervaloPedidos); intervaloPedidos = null; }
+    detenerTiempoReal();
+    actualizarIndicadorVivo();
     if (intervaloRenovacionSesion) { clearInterval(intervaloRenovacionSesion); intervaloRenovacionSesion = null; }
     document.getElementById('app').style.display = 'none';
     document.getElementById('vista-vendedor').style.display = 'none';
