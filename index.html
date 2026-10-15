@@ -390,6 +390,18 @@
   .importar-fijas summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--gris-texto); }
   .importar-fijas .controles-plantilla { margin-top: 10px; }
 
+  /* ===== Pantalla ancha (PC): las tablas se ven completas, sin barra lateral ===== */
+  @media (min-width: 1000px) {
+    #contenedor-principal { max-width: min(1700px, 98vw); padding: 24px 28px; }
+    /* Formularios y paneles de texto conservan un ancho cómodo */
+    #vista-principal-vendedor, #seccion-agregar-info, #seccion-usuarios, #seccion-cambios { max-width: 900px; }
+    /* El texto de las celdas puede partirse en varias líneas, así la tabla siempre cabe */
+    .tabla-pedidos { white-space: normal; font-size: 13px; }
+    .tabla-pedidos th, .tabla-pedidos td { padding: 9px 8px; overflow-wrap: break-word; vertical-align: top; }
+    .tabla-pedidos td.celda-numero, .tabla-pedidos th.celda-numero,
+    .tabla-pedidos td.celda-listo, .tabla-pedidos td.celda-acciones { white-space: nowrap; }
+  }
+
   /* ===== Reporte semanal: selector de unidad ===== */
   .selector-unidad { margin: 0; }
   .selector-unidad button { padding: 10px 18px; font-size: 14px; }
@@ -1136,6 +1148,19 @@
     document.getElementById('modal-observacion').style.display = 'none';
   }
 
+  // Cambia el contenido de un contenedor SIN perder el desplazamiento horizontal de las tablas
+  // (en el celular, el refresco automático hacía volver la tabla al borde izquierdo).
+  // Si el contenido es idéntico al anterior, no se toca nada.
+  function asignarHtmlConservandoScroll(contenedor, html) {
+    if (contenedor._htmlPrevio === html) return;
+    const posiciones = Array.prototype.map.call(contenedor.querySelectorAll('.tabla-scroll'), function (t) { return t.scrollLeft; });
+    contenedor.innerHTML = html;
+    contenedor._htmlPrevio = html;
+    contenedor.querySelectorAll('.tabla-scroll').forEach(function (t, i) {
+      if (posiciones[i]) t.scrollLeft = posiciones[i];
+    });
+  }
+
   function renderizarFilaReporte(p) {
     const vendedor = catalogos.perfiles.find(function (v) { return v.id === p.creado_por; });
     const nombreVendedor = vendedor ? vendedor.nombre : '—';
@@ -1172,7 +1197,7 @@
       '<td>' + grado + '</td>' +
       '<td>' + longitud + '</td>' +
       '<td>' + caja + capuchon + '</td>' +
-      '<td>' + p.cantidad_cajas + ' × ' + p.ramos_por_caja + ' × ' + p.tallos_por_ramo + '</td>' +
+      '<td style="white-space:nowrap">' + p.cantidad_cajas + ' × ' + p.ramos_por_caja + ' × ' + p.tallos_por_ramo + '</td>' +
       '<td><strong>' + p.total_tallos + '</strong></td>' +
       '<td>' + destino + agencia + '</td>' +
       '<td>' + nombreVendedor + '</td>' +
@@ -1221,7 +1246,7 @@
     const contenedor = document.getElementById('contenedor-reporte');
 
     if (pedidos.length === 0) {
-      contenedor.innerHTML = '<p class="sin-datos">No hay pedidos registrados para este día.</p>';
+      asignarHtmlConservandoScroll(contenedor, '<p class="sin-datos">No hay pedidos registrados para este día.</p>');
       return;
     }
 
@@ -1261,7 +1286,7 @@
     });
 
     html += '<p class="total-general">Total del día: ' + totalGeneralCajas + ' cajas · ' + totalGeneralTallos + ' tallos</p>';
-    contenedor.innerHTML = html;
+    asignarHtmlConservandoScroll(contenedor, html);
   }
 
   // ---------- VERSIÓN COMPACTA PARA IMPRIMIR ----------
@@ -1459,7 +1484,7 @@
       contenedor.innerHTML = '<p class="sin-datos">No hay cambios registrados para ' + (diaCambiosActivo === 'manana' ? 'mañana' : 'hoy') + '.</p>';
       return;
     }
-    contenedor.innerHTML = cambios.map(renderizarCambio).join('');
+    asignarHtmlConservandoScroll(contenedor, cambios.map(renderizarCambio).join(''));
   }
 
   async function cargarReporteDia() {
@@ -1594,7 +1619,7 @@
     html += '<td class="celda-numero">' + totalGeneral + '</td></tr>';
     html += '</tbody></table></div>';
 
-    contenedor.innerHTML = html;
+    asignarHtmlConservandoScroll(contenedor, html);
   }
 
   // ---------- ADMINISTRAR USUARIOS (solo administrador) ----------
@@ -2608,7 +2633,7 @@
           '<td>' + escaparHtml(nombreDeCatalogo('grados', f.grado_id) || '—') + '</td>' +
           '<td>' + escaparHtml(nombreDeCatalogo('longitudes_tallo', f.longitud_tallo_id) || '—') + '</td>' +
           '<td>' + escaparHtml((nombreDeCatalogo('tipos_caja', f.tipo_caja_id) || '—') + (capuchon ? ' · ' + capuchon : '')) + '</td>' +
-          '<td>' + f.cantidad_cajas + ' × ' + f.ramos_por_caja + ' × ' + f.tallos_por_ramo + '</td>' +
+          '<td style="white-space:nowrap">' + f.cantidad_cajas + ' × ' + f.ramos_por_caja + ' × ' + f.tallos_por_ramo + '</td>' +
           '<td><strong>' + tallos + '</strong></td>' +
           '<td>' + escaparHtml(destino + (agencia ? ' / ' + agencia : '')) + '</td>' +
           '<td>' + obs + '</td>' +
@@ -2626,7 +2651,7 @@
         '<p class="subtotal-producto">Subtotal ' + escaparHtml(nombreProducto) + ': ' + subCajas + ' cajas · ' + subTallos + ' tallos</p></div>';
     });
     html += '<p class="total-general">Total fijo del día: ' + totalCajas + ' cajas · ' + totalTallos + ' tallos</p>';
-    contenedor.innerHTML = html;
+    asignarHtmlConservandoScroll(contenedor, html);
   }
 
   function elegirDiaFijas(dia) {
@@ -3057,6 +3082,7 @@
     document.getElementById('vista-vendedor').style.display = 'none';
     document.getElementById('pestanas-dias-reporte').innerHTML = '';
     document.getElementById('contenedor-reporte').innerHTML = '';
+    ['contenedor-reporte','contenedor-reporte-semanal','contenedor-cambios','contenedor-fijas'].forEach(function (i) { document.getElementById(i)._htmlPrevio = undefined; });
     document.getElementById('contenedor-reporte-semanal').innerHTML = '';
     document.getElementById('contenedor-cambios').innerHTML = '';
     cantidadCambiosMostrar = 5;
