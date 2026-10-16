@@ -311,12 +311,14 @@
   .cambio-item.cambio-tipo-creado { border-left-color: var(--verde-oscuro); }
   .cambio-item.cambio-tipo-editado { border-left-color: #B8791E; }
   .cambio-item.cambio-tipo-borrado { border-left-color: var(--rosa); }
-  .cambio-encabezado { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+  .cambio-encabezado { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 8px; }
   .cambio-etiqueta { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; }
   .cambio-tipo-creado .cambio-etiqueta { color: var(--verde-oscuro); }
   .cambio-tipo-editado .cambio-etiqueta { color: #B8791E; }
   .cambio-tipo-borrado .cambio-etiqueta { color: var(--rosa); }
-  .cambio-hora { font-size: 12px; color: var(--gris-texto); }
+  .cambio-hora { font-size: 16px; font-weight: 700; color: var(--carbon); background: #F1EFE6; border-radius: 999px; padding: 3px 12px; white-space: nowrap; }
+  .cambio-resumen { margin: 6px 0 0; font-size: 15px; color: var(--carbon); }
+  .cambio-resumen strong { font-size: 17px; letter-spacing: 0.02em; }
   .cambio-contexto { font-size: 14px; margin: 0; color: var(--carbon); }
   .detalle-cambio { margin: 8px 0 0; padding-left: 18px; font-size: 13px; color: var(--carbon); }
   .detalle-cambio li { margin-bottom: 3px; }
@@ -387,6 +389,11 @@
   .botones-modal-fija { display: flex; gap: 10px; }
   .botones-modal-fija button { padding: 10px 18px; font-size: 14px; }
   .etiqueta-subida { display: inline-block; margin-left: 6px; font-size: 11px; font-weight: 600; color: var(--verde-oscuro); background: var(--verde-suave); border-radius: 999px; padding: 1px 8px; }
+  .selector-semana { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; }
+  .atajos-semana { display: flex; gap: 6px; }
+  .atajos-semana button { padding: 10px 14px; border-radius: 8px; border: 1px solid var(--gris-borde); background: #fff; color: var(--carbon); cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 600; }
+  .atajos-semana button:hover { border-color: var(--verde-oscuro); color: var(--verde-oscuro); }
+  .atajos-semana button.activo { background: var(--verde-oscuro); border-color: var(--verde-oscuro); color: #fff; }
   .botones-seleccion-fijas { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 14px; }
   .botones-seleccion-fijas button { padding: 7px 12px; border-radius: 8px; border: 1px solid var(--gris-borde); background: #fff; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 600; }
   .botones-seleccion-fijas button:hover { border-color: var(--verde-oscuro); color: var(--verde-oscuro); }
@@ -644,10 +651,10 @@
         <p class="nota-actualizacion">Aquí viven los pedidos que se repiten cada semana. Edítalos aquí y, cuando quieras, súbelos a una semana con un solo clic. Los cambios que hagas aquí no modifican pedidos que ya subiste; si subes de nuevo la misma semana, solo se agregan los que faltan (nunca se duplican).</p>
 
         <div class="controles-reporte">
-          <div class="campo campo-fecha-reporte">
+          <div class="selector-semana"><div class="atajos-semana" data-objetivo="fecha-plantilla"><button type="button" data-offset="0" onclick="irASemana('fecha-plantilla', 0)">Esta semana</button><button type="button" data-offset="1" onclick="irASemana('fecha-plantilla', 1)">Siguiente semana</button></div><div class="campo campo-fecha-reporte">
             <label for="fecha-plantilla">Semana a la que se suben (cualquier día de esa semana)</label>
             <input type="date" id="fecha-plantilla" onchange="alCambiarSemanaFijas()">
-          </div>
+          </div></div>
           <div class="botones-reporte">
             <button type="button" id="boton-subir-fijas" class="boton-principal-fijas" onclick="subirOrdenesFijas()">Subir órdenes fijas a la semana</button>
             <button type="button" onclick="abrirFormularioFija(null)">+ Nueva orden fija</button>
@@ -821,10 +828,10 @@
     <section id="seccion-lista">
       <button type="button" id="boton-volver-lista" class="boton-volver" onclick="volverAlFormulario()" style="display:none;">← Volver al formulario principal</button>
       <div class="controles-reporte">
-        <div class="campo campo-fecha-reporte">
+        <div class="selector-semana"><div class="atajos-semana" data-objetivo="fecha-reporte"><button type="button" data-offset="0" onclick="irASemana('fecha-reporte', 0)">Esta semana</button><button type="button" data-offset="1" onclick="irASemana('fecha-reporte', 1)">Siguiente semana</button></div><div class="campo campo-fecha-reporte">
           <label for="fecha-reporte">Selecciona una semana</label>
           <input type="date" id="fecha-reporte" onchange="alCambiarSemanaReporte()">
-        </div>
+        </div></div>
         <div class="botones-reporte">
           <button type="button" onclick="prepararEImprimir()">Imprimir</button>
         </div>
@@ -856,10 +863,10 @@
             <button type="button" data-unidad="ramos" onclick="elegirUnidadSemanal('ramos')">Ramos</button>
           </div>
         </div>
-        <div class="campo campo-fecha-reporte">
+        <div class="selector-semana"><div class="atajos-semana" data-objetivo="reporte-semanal-fecha"><button type="button" data-offset="0" onclick="irASemana('reporte-semanal-fecha', 0)">Esta semana</button><button type="button" data-offset="1" onclick="irASemana('reporte-semanal-fecha', 1)">Siguiente semana</button></div><div class="campo campo-fecha-reporte">
           <label for="reporte-semanal-fecha">Cualquier día de esa semana</label>
           <input type="date" id="reporte-semanal-fecha" onchange="cargarReporteSemanal()">
-        </div>
+        </div></div>
       </div>
       <div id="contenedor-reporte-semanal"></div>
     </section>
@@ -1380,7 +1387,37 @@
   // ---------- SEMANA + PESTAÑAS DE DÍA ----------
   const NOMBRES_DIAS_TABS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 
+  // ---------- ATAJOS "ESTA SEMANA" / "SIGUIENTE SEMANA" ----------
+  function lunesDeEstaSemana(offsetSemanas) {
+    const lunes = lunesDeLaSemana(formatoFechaYMD(new Date()));
+    lunes.setDate(lunes.getDate() + 7 * offsetSemanas);
+    return lunes;
+  }
+
+  function irASemana(idCampo, offset) {
+    const campo = document.getElementById(idCampo);
+    campo.value = offset === 0 ? formatoFechaYMD(new Date()) : formatoFechaYMD(lunesDeEstaSemana(offset));
+    campo.dispatchEvent(new Event('change'));   // dispara el mismo cambio de semana que al elegir una fecha a mano
+    actualizarAtajosSemana();
+  }
+
+  function actualizarAtajosSemana() {
+    document.querySelectorAll('.atajos-semana').forEach(function (grupo) {
+      const campo = document.getElementById(grupo.getAttribute('data-objetivo'));
+      const lunesElegido = campo && campo.value ? formatoFechaYMD(lunesDeLaSemana(campo.value)) : null;
+      grupo.querySelectorAll('button').forEach(function (b) {
+        const lunesAtajo = formatoFechaYMD(lunesDeEstaSemana(Number(b.getAttribute('data-offset'))));
+        b.classList.toggle('activo', lunesElegido !== null && lunesElegido === lunesAtajo);
+      });
+    });
+  }
+
+  document.addEventListener('change', function (e) {
+    if (e.target && e.target.type === 'date') actualizarAtajosSemana();
+  });
+
   function alCambiarSemanaReporte() {
+    actualizarAtajosSemana();
     const fecha = document.getElementById('fecha-reporte').value;
     if (!fecha) return;
     const lunesBase = lunesDeLaSemana(fecha);
@@ -1468,10 +1505,17 @@
       }
     }
 
+    let resumen = '';
+    if ((c.tipo_cambio === 'creado' || c.tipo_cambio === 'borrado') && c.cantidad_cajas !== null && c.cantidad_cajas !== undefined) {
+      resumen = '<p class="cambio-resumen" title="Cajas x ramos x tallos"><strong>' + c.cantidad_cajas + 'x' + c.ramos_por_caja + 'x' + c.tallos_por_ramo + '</strong>' +
+        (c.grado_nombre ? ' · ' + escaparHtml(c.grado_nombre) : '') + '</p>';
+    }
+
     return '<div class="cambio-item cambio-tipo-' + c.tipo_cambio + '">' +
       '<div class="cambio-encabezado"><span class="cambio-etiqueta">' + etiquetaTipo + '</span>' +
       '<span class="cambio-hora">' + hora + '</span></div>' +
       '<p class="cambio-contexto">' + escaparHtml(contexto) + ' — ' + escaparHtml(usuario) + '</p>' +
+      resumen +
       detalle +
       '</div>';
   }
@@ -1550,6 +1594,7 @@
   }
 
   async function cargarReporteSemanal() {
+    actualizarAtajosSemana();
     const productoId = document.getElementById('reporte-semanal-producto').value;
     const fechaSemana = document.getElementById('reporte-semanal-fecha').value;
     const contenedor = document.getElementById('contenedor-reporte-semanal');
@@ -1872,7 +1917,7 @@
     llenarSelect('campo-grado', [], 'Elige un producto primero');
     llenarSelect('campo-marcacion', [], 'Sin marcación');
     document.getElementById('boton-nueva-marcacion').disabled = true;
-    document.getElementById('campo-fecha').value = new Date().toISOString().split('T')[0];
+    document.getElementById('campo-fecha').value = formatoFechaYMD(new Date());
   }
 
   // ---------- SELECTORES DEL PANEL "AGREGAR INFORMACIÓN" ----------
@@ -2556,6 +2601,7 @@
   }
 
   async function cargarOrdenesFijas() {
+    actualizarAtajosSemana();
     const contenedor = document.getElementById('contenedor-fijas');
     const semana = etiquetaSemanaFijas();
     if (!semana) return;
@@ -3164,13 +3210,13 @@
     document.getElementById('boton-admin-usuarios').style.display = sesion.es_admin ? 'inline-block' : 'none';
     document.getElementById('seccion-usuarios').style.display = 'none';
 
-    document.getElementById('fecha-reporte').value = new Date().toISOString().split('T')[0];
+    document.getElementById('fecha-reporte').value = formatoFechaYMD(new Date());
     await cargarCatalogos();
     alCambiarSemanaReporte();
     await cargarUltimosCambios();
 
     llenarSelectorProductoSemanal();
-    document.getElementById('reporte-semanal-fecha').value = new Date().toISOString().split('T')[0];
+    document.getElementById('reporte-semanal-fecha').value = formatoFechaYMD(new Date());
     await cargarReporteSemanal();
 
     if (sesion.rol === 'vendedor') {
@@ -3184,7 +3230,7 @@
       document.getElementById('boton-volver-lista').style.display = 'inline-block';
       document.getElementById('boton-volver-semanal').style.display = 'inline-block';
       document.getElementById('boton-volver-cambios').style.display = 'inline-block';
-      document.getElementById('fecha-plantilla').value = new Date().toISOString().split('T')[0];
+      document.getElementById('fecha-plantilla').value = formatoFechaYMD(new Date());
       llenarFormularioInicial();
       llenarSelectoresAgregarInfo();
     } else {
